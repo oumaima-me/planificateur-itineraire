@@ -1,27 +1,7 @@
-
 import Card from "../components/Card";
 import ItineraryCard from "../components/ItineraryCard";
 
-function Dashboard() {
-  const itineraires = [
-    {
-      id: 1,
-      titre: "Vacances à Marrakech",
-      destination: "Marrakech",
-      dateDebut: "10/12/2026",
-      dateFin: "15/12/2026",
-      budgetTotal: 3000,
-    },
-    {
-      id: 2,
-      titre: "Découverte de Fès",
-      destination: "Fès",
-      dateDebut: "20/12/2026",
-      dateFin: "23/12/2026",
-      budgetTotal: 2000,
-    },
-  ];
-
+function Dashboard({ itineraires, onOuvrirDetails }) {
   return (
     <div className="dashboard">
       <h1>Bienvenue sur votre tableau de bord !</h1>
@@ -46,6 +26,7 @@ function Dashboard() {
           <ItineraryCard
             key={itineraire.id}
             itinerary={itineraire}
+            onClick={() => onOuvrirDetails(itineraire)}
           />
         ))}
       </div>

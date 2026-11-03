@@ -1,4 +1,3 @@
-
 function ItineraryCard({ itinerary, onClick }) {
   return (
     <div className="itinerary-card">

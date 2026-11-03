@@ -1,10 +1,9 @@
-
 import { useState } from "react";
 import Input from "../components/Input";
 import Button from "../components/Button";
 import Card from "../components/Card";
 
-function CreateItinerary() {
+function CreateItinerary({ onAjouter }) {
   const [titre, setTitre] = useState("");
   const [destination, setDestination] = useState("");
   const [dateDebut, setDateDebut] = useState("");
@@ -19,11 +18,10 @@ function CreateItinerary() {
       destination,
       dateDebut,
       dateFin,
-      budgetTotal,
+      budgetTotal: Number(budgetTotal),
     };
 
-    console.log(nouvelItineraire);
-    alert("Itinéraire créé avec succès !");
+    onAjouter(nouvelItineraire);
   }
 
   return (
@@ -36,33 +34,40 @@ function CreateItinerary() {
           <Input
             label="Titre de l'itinéraire"
             placeholder="Ex : Vacances d'été"
+            value={titre}
+            onChange={(e) => setTitre(e.target.value)}
           />
 
           <Input
             label="Destination"
             placeholder="Ex : Marrakech"
+            value={destination}
+            onChange={(e) => setDestination(e.target.value)}
           />
 
           <Input
             label="Date de départ"
             type="date"
+            value={dateDebut}
+            onChange={(e) => setDateDebut(e.target.value)}
           />
 
           <Input
             label="Date de retour"
             type="date"
+            value={dateFin}
+            onChange={(e) => setDateFin(e.target.value)}
           />
 
           <Input
             label="Budget total (DH)"
             type="number"
             placeholder="Ex : 3000"
+            value={budgetTotal}
+            onChange={(e) => setBudgetTotal(e.target.value)}
           />
 
-          <Button
-            text="Créer l'itinéraire"
-            type="submit"
-          />
+          <Button text="Créer l'itinéraire" type="submit" />
         </form>
       </Card>
     </div>
