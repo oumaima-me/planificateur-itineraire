@@ -19,6 +19,7 @@ function CreateItinerary({ onAjouter }) {
       dateDebut,
       dateFin,
       budgetTotal: Number(budgetTotal),
+      etapes: [],
     };
 
     onAjouter(nouvelItineraire);

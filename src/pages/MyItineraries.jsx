@@ -1,29 +1,9 @@
-
 import { useState } from "react";
 import SearchBar from "../components/SearchBar";
 import ItineraryCard from "../components/ItineraryCard";
 
-function MyItineraries() {
+function MyItineraries({ itineraires, onOuvrirDetails }) {
   const [recherche, setRecherche] = useState("");
-
-  const itineraires = [
-    {
-      id: 1,
-      titre: "Vacances à Marrakech",
-      destination: "Marrakech",
-      dateDebut: "10/12/2026",
-      dateFin: "15/12/2026",
-      budgetTotal: 3000,
-    },
-    {
-      id: 2,
-      titre: "Découverte de Fès",
-      destination: "Fès",
-      dateDebut: "20/12/2026",
-      dateFin: "23/12/2026",
-      budgetTotal: 2000,
-    },
-  ];
 
   const itinerairesFiltres = itineraires.filter((itineraire) =>
     itineraire.titre.toLowerCase().includes(recherche.toLowerCase()) ||
@@ -47,6 +27,7 @@ function MyItineraries() {
             <ItineraryCard
               key={itineraire.id}
               itinerary={itineraire}
+              onClick={() => onOuvrirDetails(itineraire)}
             />
           ))
         ) : (
