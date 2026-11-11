@@ -1,8 +1,9 @@
+
 import { useState } from "react";
 import SearchBar from "../components/SearchBar";
 import ItineraryCard from "../components/ItineraryCard";
 
-function MyItineraries({ itineraires, onOuvrirDetails }) {
+function MyItineraries({ itineraires, onOuvrirDetails, onSupprimer }) {
   const [recherche, setRecherche] = useState("");
 
   const itinerairesFiltres = itineraires.filter((itineraire) =>
@@ -18,7 +19,7 @@ function MyItineraries({ itineraires, onOuvrirDetails }) {
       <SearchBar
         placeholder="Rechercher un itinéraire..."
         value={recherche}
-        onChange={(e) => setRecherche(e.target.value)}
+        onChange={setRecherche}
       />
 
       <div className="itineraries-list">
@@ -28,6 +29,7 @@ function MyItineraries({ itineraires, onOuvrirDetails }) {
               key={itineraire.id}
               itinerary={itineraire}
               onClick={() => onOuvrirDetails(itineraire)}
+              onSupprimer={() => onSupprimer(itineraire.id)}
             />
           ))
         ) : (

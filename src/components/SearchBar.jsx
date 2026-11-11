@@ -1,12 +1,14 @@
+
 function SearchBar({ placeholder, value, onChange }) {
   return (
     <div className="search-bar">
-      <span>⌕</span>
+      <span aria-hidden="true">⌕</span>
+
       <input
-        type="text"
+        type="search"
         placeholder={placeholder}
         value={value}
-        onChange={onChange}
+        onChange={(e) => onChange(e.target.value)}
       />
     </div>
   );

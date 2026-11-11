@@ -1,7 +1,8 @@
+
 import Card from "../components/Card";
 import ItineraryCard from "../components/ItineraryCard";
 
-function Dashboard({ itineraires, onOuvrirDetails }) {
+function Dashboard({ itineraires, onOuvrirDetails, onSupprimer }) {
   return (
     <div className="dashboard">
       <h1>Bienvenue sur votre tableau de bord !</h1>
@@ -22,13 +23,18 @@ function Dashboard({ itineraires, onOuvrirDetails }) {
       <h2>Mes derniers itinéraires</h2>
 
       <div className="itineraries-list">
-        {itineraires.map((itineraire) => (
-          <ItineraryCard
-            key={itineraire.id}
-            itinerary={itineraire}
-            onClick={() => onOuvrirDetails(itineraire)}
-          />
-        ))}
+        {itineraires.length > 0 ? (
+          itineraires.map((itineraire) => (
+            <ItineraryCard
+              key={itineraire.id}
+              itinerary={itineraire}
+              onClick={() => onOuvrirDetails(itineraire)}
+              onSupprimer={() => onSupprimer(itineraire.id)}
+            />
+          ))
+        ) : (
+          <p>Aucun itinéraire créé pour le moment.</p>
+        )}
       </div>
     </div>
   );
