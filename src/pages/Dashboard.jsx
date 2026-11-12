@@ -1,22 +1,16 @@
-
 import Card from "../components/Card";
 import ItineraryCard from "../components/ItineraryCard";
 
-function Dashboard({ itineraires, onOuvrirDetails, onSupprimer }) {
+function Dashboard({ itineraires, onOuvrirDetails, onModifierItineraire, onSupprimer }) {
   return (
     <div className="dashboard">
-      <h1>Bienvenue sur votre tableau de bord !</h1>
-      <p>Organisez et gérez facilement vos voyages.</p>
+      <h1>Tableau de bord</h1>
+      <p>Organisez vos prochaines aventures ! Bienvenue sur votre espace de planification.</p>
 
-      <div className="dashboard-stats">
+      <div className="dashboard-stats" style={{ display: "flex", gap: "20px", margin: "20px 0" }}>
         <Card>
           <h3>Mes itinéraires</h3>
-          <p>{itineraires.length}</p>
-        </Card>
-
-        <Card>
-          <h3>Application</h3>
-          <p>Planificateur de voyages</p>
+          <p style={{ fontSize: "1.5rem", fontWeight: "bold" }}>{itineraires.length}</p>
         </Card>
       </div>
 
@@ -29,6 +23,7 @@ function Dashboard({ itineraires, onOuvrirDetails, onSupprimer }) {
               key={itineraire.id}
               itinerary={itineraire}
               onClick={() => onOuvrirDetails(itineraire)}
+              onModifier={() => onModifierItineraire(itineraire)}
               onSupprimer={() => onSupprimer(itineraire.id)}
             />
           ))
