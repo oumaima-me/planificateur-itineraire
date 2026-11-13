@@ -1,7 +1,4 @@
 import { useState, useEffect } from "react";
-import Input from "../components/Input";
-import Button from "../components/Button";
-import Card from "../components/Card";
 
 function CreateItinerary({ onEnregistrer, itineraireAModifier, onAnnulerModification }) {
   const [titre, setTitre] = useState("");
@@ -17,20 +14,26 @@ function CreateItinerary({ onEnregistrer, itineraireAModifier, onAnnulerModifica
       setDateDebut(itineraireAModifier.dateDebut);
       setDateFin(itineraireAModifier.dateFin);
       setBudgetTotal(itineraireAModifier.budgetTotal);
+    } else {
+      setTitre("");
+      setDestination("");
+      setDateDebut("");
+      setDateFin("");
+      setBudgetTotal("");
     }
   }, [itineraireAModifier]);
 
   function handleSubmit(e) {
     e.preventDefault();
+
     const donneesItineraire = {
-      ...(itineraireAModifier ? itineraireAModifier : {}),
       id: itineraireAModifier ? itineraireAModifier.id : Date.now(),
       titre,
       destination,
       dateDebut,
       dateFin,
       budgetTotal: Number(budgetTotal),
-      etapes: itineraireAModifier ? itineraireAModifier.etapes : [],
+      etapes: itineraireAModifier ? itineraireAModifier.etapes || [] : [],
     };
 
     onEnregistrer(donneesItineraire);
@@ -38,29 +41,80 @@ function CreateItinerary({ onEnregistrer, itineraireAModifier, onAnnulerModifica
 
   return (
     <div className="create-itinerary">
-      <h1>{itineraireAModifier ? "Modifier l'itinéraire" : "Créer un itinéraire"}</h1>
-      <p>{itineraireAModifier ? "Mettez à jour les informations de votre voyage." : "Renseignez les informations de votre prochain voyage."}</p>
+      <h1>{itineraireAModifier ? "Modifier l'itinéraire" : "Créer un nouvel itinéraire"}</h1>
+      <p>
+        {itineraireAModifier
+          ? "Mettez à jour les informations générales. Pour gérer les étapes, ouvrez les détails de l'itinéraire."
+          : "Définissez les bases de votre voyage. Vous pourrez ensuite ajouter vos étapes dans les détails."}
+      </p>
 
-      <Card>
-        <form onSubmit={handleSubmit}>
-          <Input label="Titre" value={titre} onChange={(e) => setTitre(e.target.value)} />
-          <Input label="Destination" value={destination} onChange={(e) => setDestination(e.target.value)} />
-          <Input label="Date de départ" type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} />
-          <Input label="Date de retour" type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} />
-          <Input label="Budget total (DH)" type="number" value={budgetTotal} onChange={(e) => setBudgetTotal(e.target.value)} />
+      <form onSubmit={handleSubmit} className="card">
+        <div className="input-group">
+          <label>Titre du voyage</label>
+          <input
+            type="text"
+            placeholder="Ex: Découverte du Sud Marocain"
+            value={titre}
+            onChange={(e) => setTitre(e.target.value)}
+            required
+          />
+        </div>
 
-          <div style={{ display: "flex", gap: "10px", marginTop: "15px" }}>
-            <Button type="submit">
-              {itineraireAModifier ? "Enregistrer les modifications" : "Créer l'itinéraire"}
-            </Button>
-            {itineraireAModifier && (
-              <Button type="button" variant="secondary" onClick={onAnnulerModification}>
-                Annuler
-              </Button>
-            )}
-          </div>
-        </form>
-      </Card>
+        <div className="input-group">
+          <label>Destination principale</label>
+          <input
+            type="text"
+            placeholder="Ex: Marrakech - Merzouga"
+            value={destination}
+            onChange={(e) => setDestination(e.target.value)}
+            required
+          />
+        </div>
+
+        <div className="input-group">
+          <label>Date de début</label>
+          <input
+            type="date"
+            value={dateDebut}
+            onChange={(e) => setDateDebut(e.target.value)}
+            required
+          />
+        </div>
+
+        <div className="input-group">
+          <label>Date de fin</label>
+          <input
+            type="date"
+            value={dateFin}
+            onChange={(e) => setDateFin(e.target.value)}
+            required
+          />
+        </div>
+
+        <div className="input-group">
+          <label>Budget total prévu (DH)</label>
+          <input
+            type="number"
+            placeholder="Ex: 6000"
+            value={budgetTotal}
+            onChange={(e) => setBudgetTotal(e.target.value)}
+            min="0"
+            required
+          />
+        </div>
+
+        <div className="card-actions">
+          <button type="submit" className="button-primary">
+            {itineraireAModifier ? "Enregistrer les modifications" : "Créer l'itinéraire"}
+          </button>
+
+          {itineraireAModifier && (
+            <button type="button" onClick={onAnnulerModification} className="button-secondary">
+              Annuler
+            </button>
+          )}
+        </div>
+      </form>
     </div>
   );
 }

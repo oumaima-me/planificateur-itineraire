@@ -11,12 +11,12 @@ function ItineraryCard({ itinerary, onClick, onModifier, onSupprimer }) {
       <p>Budget : {Number(itinerary.budgetTotal).toLocaleString("fr-FR")} DH</p>
       <p>Nombre d'étapes : {itinerary.etapes?.length || 0}</p>
 
-      <div className="card-actions" style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
+      <div className="card-actions">
         <Button onClick={onClick} variant="primary">
           <Eye size={16} /> Détails
         </Button>
 
-        <Button onClick={() => onModifier(itinerary)} variant="secondary">
+        <Button onClick={onModifier} variant="secondary">
           <Edit size={16} /> Modifier
         </Button>
 
