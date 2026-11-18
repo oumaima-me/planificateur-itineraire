@@ -3,47 +3,51 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Step;
 use Illuminate\Http\Request;
 
 class StepController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
-        //
+        return response()->json(Step::all(), 200);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
-        //
+        $validated = $request->validate([
+            'itinerary_id' => 'required|exists:itineraries,id',
+            'nom' => 'required|string|max:255',
+            'notes' => 'nullable|string',
+            'date_etape' => 'nullable|date',
+            'ordre' => 'nullable|integer',
+        ]);
+
+        $step = Step::create($validated);
+        return response()->json($step, 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
+    public function show(Step $step)
     {
-        //
+        return response()->json($step, 200);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
+    public function update(Request $request, Step $step)
     {
-        //
+        $validated = $request->validate([
+            'nom' => 'sometimes|string|max:255',
+            'notes' => 'nullable|string',
+            'date_etape' => 'nullable|date',
+            'ordre' => 'nullable|integer',
+        ]);
+
+        $step->update($validated);
+        return response()->json($step, 200);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
+    public function destroy(Step $step)
     {
-        //
+        $step->delete();
+        return response()->json(null, 204);
     }
 }

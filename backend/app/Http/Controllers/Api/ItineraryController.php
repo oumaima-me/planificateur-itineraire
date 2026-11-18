@@ -3,47 +3,55 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Itinerary;
 use Illuminate\Http\Request;
 
 class ItineraryController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
-        //
+        return response()->json(Itinerary::with('steps')->get(), 200);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
-        //
+        $validated = $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'titre' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'destination' => 'required|string|max:255',
+            'date_debut' => 'nullable|date',
+            'date_fin' => 'nullable|date',
+            'budget' => 'nullable|numeric',
+        ]);
+
+        $itinerary = Itinerary::create($validated);
+        return response()->json($itinerary, 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
+    public function show(Itinerary $itinerary)
     {
-        //
+        return response()->json($itinerary->load('steps'), 200);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
+    public function update(Request $request, Itinerary $itinerary)
     {
-        //
+        $validated = $request->validate([
+            'titre' => 'sometimes|string|max:255',
+            'description' => 'nullable|string',
+            'destination' => 'sometimes|string|max:255',
+            'date_debut' => 'nullable|date',
+            'date_fin' => 'nullable|date',
+            'budget' => 'nullable|numeric',
+        ]);
+
+        $itinerary->update($validated);
+        return response()->json($itinerary, 200);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
+    public function destroy(Itinerary $itinerary)
     {
-        //
+        $itinerary->delete();
+        return response()->json(null, 204);
     }
 }
