@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import api from "./api/axios";
 import "./App.css";
-
 import Sidebar from "./components/Sidebar";
 import Dashboard from "./pages/Dashboard";
 import MyItineraries from "./pages/MyItineraries";
@@ -32,54 +32,116 @@ function App() {
     return "dashboard";
   });
 
-  const [itineraires, setItineraires] = useState([
-    {
-      id: 1,
-      titre: "Roadtrip du Nord",
-      destination: "Tanger - Chefchaouen",
-      dateDebut: "2026-07-01",
-      dateFin: "2026-07-10",
-      budgetTotal: 5000,
-      etapes: [],
-    },
-  ]);
+  const [itineraires, setItineraires] = useState([]);
+
+  // Charger les itinéraires depuis l'API Laravel au démarrage
+  useEffect(() => {
+    if (utilisateur) {
+      api.get("/itineraries")
+        .then((response) => {
+          // Transformation des données Laravel (snake_case) vers le format React (camelCase)
+          const formatted = response.data.map((item) => ({
+            ...item,
+            dateDebut: item.date_debut,
+            dateFin: item.date_fin,
+            budgetTotal: item.budget,
+            etapes: item.steps || [],
+          }));
+          setItineraires(formatted);
+        })
+        .catch((error) => {
+          console.error("Erreur lors de la récupération des itinéraires :", error);
+        });
+    }
+  }, [utilisateur]);
 
   const [itineraireSelectionne, setItineraireSelectionne] = useState(null);
   const [itineraireAModifier, setItineraireAModifier] = useState(null);
 
-  function handleLogin(user) {
+  function handleLogin(data) {
+    const user = data?.user ?? data;
+    if (data?.token) {
+      localStorage.setItem("token", data.token);
+    }
     setUtilisateur(user);
     localStorage.setItem("utilisateur", JSON.stringify(user));
     setPageActuelle(user.role === "admin" ? "admin" : "dashboard");
   }
 
-  function handleRegister(newUser) {
-    setUtilisateurs([...utilisateurs, newUser]);
-    handleLogin(newUser);
+  function handleRegister(data) {
+    const newUser = data?.user ?? data;
+    if (data?.token) {
+      localStorage.setItem("token", data.token);
+    }
+    setUtilisateurs((prev) => {
+      const exists = prev.some((u) => u.id === newUser.id || u.email === newUser.email);
+      return exists ? prev : [...prev, newUser];
+    });
+    handleLogin(data);
   }
 
   function handleLogout() {
+    api.post("/logout").catch(() => {});
     setUtilisateur(null);
     localStorage.removeItem("utilisateur");
+    localStorage.removeItem("token");
     setAuthMode("login");
   }
 
-  function enregistrerItineraire(itinerairesDonnees) {
-    const existe = itineraires.some((i) => i.id === itinerairesDonnees.id);
-    if (existe) {
-      setItineraires(itineraires.map((i) => (i.id === itinerairesDonnees.id ? itinerairesDonnees : i)));
-    } else {
-      setItineraires([...itineraires, itinerairesDonnees]);
+  async function enregistrerItineraire(itinerairesDonnees) {
+    const payload = {
+      user_id: utilisateur.id,
+      titre: itinerairesDonnees.titre,
+      description: itinerairesDonnees.description || "",
+      destination: itinerairesDonnees.destination,
+      date_debut: itinerairesDonnees.dateDebut,
+      date_fin: itinerairesDonnees.dateFin,
+      budget: itinerairesDonnees.budgetTotal,
+    };
+
+    try {
+      if (itineraireAModifier) {
+        // Modification (PUT)
+        const response = await api.put(`/itineraries/${itineraireAModifier.id}`, payload);
+        const misAJour = {
+          ...response.data,
+          dateDebut: response.data.date_debut,
+          dateFin: response.data.date_fin,
+          budgetTotal: response.data.budget,
+          etapes: itineraireAModifier.etapes || [],
+        };
+        setItineraires(itineraires.map((i) => (i.id === misAJour.id ? misAJour : i)));
+      } else {
+        // Création (POST)
+        const response = await api.post("/itineraries", payload);
+        const nouveau = {
+          ...response.data,
+          dateDebut: response.data.date_debut,
+          dateFin: response.data.date_fin,
+          budgetTotal: response.data.budget,
+          etapes: [],
+        };
+        setItineraires([...itineraires, nouveau]);
+      }
+
+      setItineraireAModifier(null);
+      setPageActuelle("itineraires");
+    } catch (error) {
+      console.error("Erreur lors de l'enregistrement :", error);
+      alert("Impossible d'enregistrer l'itinéraire. Vérifiez la console.");
     }
-    setItineraireAModifier(null);
-    setPageActuelle("itineraires");
   }
 
-  function supprimerItineraire(id) {
-    setItineraires(itineraires.filter((i) => i.id !== id));
-    if (itineraireSelectionne?.id === id) {
-      setItineraireSelectionne(null);
-      setPageActuelle("itineraires");
+  async function supprimerItineraire(id) {
+    try {
+      await api.delete(`/itineraries/${id}`);
+      setItineraires(itineraires.filter((i) => i.id !== id));
+      if (itineraireSelectionne?.id === id) {
+        setItineraireSelectionne(null);
+        setPageActuelle("itineraires");
+      }
+    } catch (error) {
+      console.error("Erreur lors de la suppression :", error);
     }
   }
 
