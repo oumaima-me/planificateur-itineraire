@@ -127,8 +127,21 @@ function App() {
       setItineraireAModifier(null);
       setPageActuelle("itineraires");
     } catch (error) {
-      console.error("Erreur lors de l'enregistrement :", error);
-      alert("Impossible d'enregistrer l'itinéraire. Vérifiez la console.");
+      console.error(
+        "Erreur POST /itineraries :",
+        error.response?.status,
+        error.response?.data || error.message
+      );
+
+      const validationMsg = error.response?.data?.errors
+        ? Object.values(error.response.data.errors).flat().join(" | ")
+        : null;
+
+      alert(
+        validationMsg ||
+          error.response?.data?.message ||
+          "Impossible d'enregistrer l'itinéraire. Vérifiez la console."
+      );
     }
   }
 
