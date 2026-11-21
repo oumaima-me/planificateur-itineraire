@@ -1,10 +1,7 @@
 import { useState } from "react";
 import api from "../api/axios";
-import Input from "../components/Input";
-import Button from "../components/Button";
-import Card from "../components/Card";
 
-function Login({ onLogin, onSwitchToRegister }) {
+function Login({ onLoginSuccess, onSwitchToRegister }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [erreur, setErreur] = useState("");
@@ -13,66 +10,80 @@ function Login({ onLogin, onSwitchToRegister }) {
   async function handleSubmit(e) {
     e.preventDefault();
     setErreur("");
-
-    if (!email || !password) {
-      setErreur("Veuillez remplir tous les champs.");
-      return;
-    }
-
     setLoading(true);
+
+    let authData = null;
+
     try {
       const response = await api.post("/login", {
-        email,
+        email: email.trim(),
         password,
       });
 
-      onLogin(response.data);
+      authData = response.data;
     } catch (error) {
-      const message =
+      console.error("Erreur login :", error);
+      setErreur(
         error.response?.data?.message ||
-        error.response?.data?.errors?.email?.[0] ||
-        "Identifiants incorrects ou serveur inaccessible.";
-      setErreur(message);
-    } finally {
+          "Identifiants incorrects ou serveur inaccessible."
+      );
       setLoading(false);
+      return;
+    }
+
+    setLoading(false);
+    if (authData && onLoginSuccess) {
+      onLoginSuccess(authData);
     }
   }
 
   return (
-    <div className="login-container" style={{ maxWidth: "400px", margin: "50px auto" }}>
+    <div className="login-container">
       <h1>Connexion</h1>
-      <p>Connectez-vous pour accéder à vos itinéraires.</p>
+      <p>Connectez-vous pour accéder à vos itinéraires</p>
 
-      {erreur && <p style={{ color: "red" }}>{erreur}</p>}
+      <form onSubmit={handleSubmit} className="card">
+        {erreur && <p className="error-message">{erreur}</p>}
 
-      <Card>
-        <form onSubmit={handleSubmit}>
-          <Input
-            label="Email"
+        <div className="input-group">
+          <label htmlFor="login-email">Email</label>
+          <input
+            id="login-email"
             type="email"
-            placeholder="votre@email.com"
+            placeholder="exemple@email.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            required
           />
+        </div>
 
-          <Input
-            label="Mot de passe"
+        <div className="input-group">
+          <label htmlFor="login-password">Mot de passe</label>
+          <input
+            id="login-password"
             type="password"
-            placeholder="********"
+            placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            required
           />
+        </div>
 
-          <div style={{ marginTop: "15px", display: "flex", flexDirection: "column", gap: "10px" }}>
-            <Button type="submit" disabled={loading}>
-              {loading ? "Connexion..." : "Se connecter"}
-            </Button>
-            <Button type="button" variant="secondary" onClick={onSwitchToRegister} disabled={loading}>
-              Créer un compte (Inscription)
-            </Button>
-          </div>
-        </form>
-      </Card>
+        <button type="submit" className="button button-primary" disabled={loading}>
+          {loading ? "Connexion..." : "Se connecter"}
+        </button>
+
+        <div className="card-actions">
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={onSwitchToRegister}
+            style={{ width: "100%" }}
+          >
+            Créer un compte (Inscription)
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

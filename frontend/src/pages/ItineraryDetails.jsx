@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
-import { BedDouble, MapPinned } from "lucide-react";
+import { BedDouble, MapPinned, Eye, Pencil, RefreshCw, ArrowLeft } from "lucide-react";
 import api from "../api/axios";
 
-function ItineraryDetails({ itineraire, onModifierItineraire }) {
+function ItineraryDetails({ itineraire, onModifierItineraire, onRetour }) {
   const [details, setDetails] = useState(itineraire);
   const [loading, setLoading] = useState(false);
   const [erreur, setErreur] = useState("");
+  const [modeEdition, setModeEdition] = useState(true);
 
   // Formulaire ajout d'étape
   const [stepNom, setStepNom] = useState("");
@@ -38,19 +39,32 @@ function ItineraryDetails({ itineraire, onModifierItineraire }) {
     if (itineraire?.id) {
       refreshDetails();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itineraire?.id]);
 
   if (!details) {
     return (
       <div className="details-page">
-        <p>Aucun itinéraire sélectionné.</p>
+        <div className="card">
+          <p>Aucun itinéraire sélectionné.</p>
+          {onRetour && (
+            <button type="button" className="button-secondary" onClick={onRetour}>
+              <ArrowLeft size={16} /> Retour
+            </button>
+          )}
+        </div>
       </div>
     );
   }
 
-  const steps = details.steps || details.etapes || [];
+  const steps = [...(details.steps || details.etapes || [])].sort(
+    (a, b) => (Number(a.ordre) || 0) - (Number(b.ordre) || 0)
+  );
 
-  // Les hébergements d'une étape (tableau). Adaptez les noms si votre API diffère.
+  function getActivities(step) {
+    return step.activities || step.activites || [];
+  }
+
   function getHebergements(step) {
     return step.accommodations || step.hebergements || [];
   }
@@ -218,7 +232,7 @@ function ItineraryDetails({ itineraire, onModifierItineraire }) {
 
   /* ---------- Totaux ---------- */
   const totalActivitiesCost = steps.reduce((sum, step) => {
-    const acts = step.activities || step.activites || [];
+    const acts = getActivities(step);
     return sum + acts.reduce((aSum, act) => aSum + (Number(act.cout) || 0), 0);
   }, 0);
 
@@ -229,6 +243,7 @@ function ItineraryDetails({ itineraire, onModifierItineraire }) {
 
   const budget = Number(details.budget ?? details.budgetTotal ?? 0);
   const totalDepenses = totalActivitiesCost + totalHebergementCost;
+  const reste = budget - totalDepenses;
 
   return (
     <div className="details-page">
@@ -243,56 +258,82 @@ function ItineraryDetails({ itineraire, onModifierItineraire }) {
           Budget : <strong>{budget.toFixed(2)} DH</strong> | Activités :{" "}
           <strong>{totalActivitiesCost.toFixed(2)} DH</strong> | Hébergements :{" "}
           <strong>{totalHebergementCost.toFixed(2)} DH</strong> | Reste :{" "}
-          <strong>{(budget - totalDepenses).toFixed(2)} DH</strong>
+          <strong>{reste.toFixed(2)} DH</strong>
         </p>
         {details.description && <p>{details.description}</p>}
-        <button type="button" onClick={refreshDetails} disabled={loading}>
-          {loading ? "Actualisation..." : "Actualiser"}
-        </button>
+
+        <div className="details-toolbar">
+          {onRetour && (
+            <button type="button" className="button-secondary" onClick={onRetour}>
+              <ArrowLeft size={16} /> Mes itinéraires
+            </button>
+          )}
+          <button
+            type="button"
+            className={!modeEdition ? "button-primary" : "button-secondary"}
+            onClick={() => setModeEdition((prev) => !prev)}
+          >
+            {modeEdition ? (
+              <>
+                <Eye size={16} /> Vue organisée
+              </>
+            ) : (
+              <>
+                <Pencil size={16} /> Mode édition
+              </>
+            )}
+          </button>
+          <button type="button" onClick={refreshDetails} disabled={loading}>
+            <RefreshCw size={15} /> {loading ? "Actualisation..." : "Actualiser"}
+          </button>
+        </div>
       </div>
 
       {erreur && <p className="error-message">{erreur}</p>}
 
-      <section className="add-step-section">
-        <h3>Ajouter une étape</h3>
-        <form onSubmit={handleAddStep} className="step-form">
-          <input
-            type="text"
-            placeholder="Nom de l'étape"
-            value={stepNom}
-            onChange={(e) => setStepNom(e.target.value)}
-          />
-          <input type="date" value={stepDate} onChange={(e) => setStepDate(e.target.value)} />
-          <input
-            type="text"
-            placeholder="Notes (optionnel)"
-            value={stepNotes}
-            onChange={(e) => setStepNotes(e.target.value)}
-          />
-          <label className="checkbox-label">
+      {modeEdition && (
+        <section className="add-step-section">
+          <h3>Ajouter une étape</h3>
+          <form onSubmit={handleAddStep} className="step-form">
             <input
-              type="checkbox"
-              checked={stepObligatoire}
-              onChange={(e) => setStepObligatoire(e.target.checked)}
+              type="text"
+              placeholder="Nom de l'étape"
+              value={stepNom}
+              onChange={(e) => setStepNom(e.target.value)}
             />
-            Étape obligatoire
-          </label>
-          <button type="submit">Ajouter l'étape</button>
-        </form>
-      </section>
+            <input type="date" value={stepDate} onChange={(e) => setStepDate(e.target.value)} />
+            <input
+              type="text"
+              placeholder="Notes (optionnel)"
+              value={stepNotes}
+              onChange={(e) => setStepNotes(e.target.value)}
+            />
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={stepObligatoire}
+                onChange={(e) => setStepObligatoire(e.target.checked)}
+              />
+              Étape obligatoire
+            </label>
+            <button type="submit">Ajouter l'étape</button>
+          </form>
+        </section>
+      )}
 
       <section className="steps-section">
-        <h3>Étapes ({steps.length})</h3>
+        <h3>Programme détaillé ({steps.length} étape{steps.length > 1 ? "s" : ""})</h3>
         {steps.length === 0 ? (
           <p className="empty-hint">Aucune étape pour cet itinéraire.</p>
         ) : (
           steps.map((step, index) => {
             const isObligatoire = Boolean(step.est_obligatoire ?? step.estObligatoire);
-            const activities = step.activities || step.activites || [];
+            const activities = getActivities(step);
             const hebergements = getHebergements(step);
             const actForm = getActivityForm(step.id);
             const hebForm = getHebergementForm(step.id);
             const coutHebergementEtape = hebergements.reduce((s, h) => s + coutHebergement(h), 0);
+            const coutActivitesEtape = activities.reduce((s, a) => s + (Number(a.cout) || 0), 0);
 
             return (
               <div key={step.id} className="step-card">
@@ -301,24 +342,29 @@ function ItineraryDetails({ itineraire, onModifierItineraire }) {
                     <strong>
                       {index + 1}. {step.nom}
                     </strong>
+                    {step.date_etape && (
+                      <span className="step-date"> — {step.date_etape}</span>
+                    )}
                     <span className={isObligatoire ? "badge-obligatoire" : "badge-facultatif"}>
                       {isObligatoire ? "Obligatoire par défaut" : "Facultatif"}
                     </span>
                   </div>
 
-                  <div className="step-actions">
-                    <button type="button" onClick={() => handleToggleStepObligatoire(step)}>
-                      {isObligatoire ? "Passer facultatif" : "Rendre obligatoire"}
-                    </button>
-                    <button
-                      type="button"
-                      className="button-danger"
-                      disabled={isObligatoire}
-                      onClick={() => handleDeleteStep(step)}
-                    >
-                      Supprimer étape
-                    </button>
-                  </div>
+                  {modeEdition && (
+                    <div className="step-actions">
+                      <button type="button" onClick={() => handleToggleStepObligatoire(step)}>
+                        {isObligatoire ? "Passer facultatif" : "Rendre obligatoire"}
+                      </button>
+                      <button
+                        type="button"
+                        className="button-danger"
+                        disabled={isObligatoire}
+                        onClick={() => handleDeleteStep(step)}
+                      >
+                        Supprimer étape
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {step.notes && <p className="step-notes">{step.notes}</p>}
@@ -327,6 +373,9 @@ function ItineraryDetails({ itineraire, onModifierItineraire }) {
                 <div className="activities-block">
                   <h4>
                     <MapPinned size={16} /> Activités ({activities.length})
+                    {activities.length > 0 && (
+                      <small> — {coutActivitesEtape.toFixed(2)} DH</small>
+                    )}
                   </h4>
                   {activities.length === 0 ? (
                     <p className="empty-hint">Aucune activité dans cette étape.</p>
@@ -338,60 +387,71 @@ function ItineraryDetails({ itineraire, onModifierItineraire }) {
                           <li key={act.id} className="activity-item">
                             <span>
                               <strong>{act.nom}</strong> — {Number(act.cout || 0).toFixed(2)} DH{" "}
-                              <span className={actObligatoire ? "badge-obligatoire" : "badge-facultatif"}>
+                              <span
+                                className={
+                                  actObligatoire ? "badge-obligatoire" : "badge-facultatif"
+                                }
+                              >
                                 {actObligatoire ? "Obligatoire" : "Facultatif"}
                               </span>
                             </span>
 
-                            <div className="activity-actions">
-                              <button type="button" onClick={() => handleToggleActivityObligatoire(act)}>
-                                {actObligatoire ? "Facultatif" : "Obligatoire"}
-                              </button>
-                              <button
-                                type="button"
-                                className="button-danger"
-                                disabled={actObligatoire}
-                                onClick={() => handleDeleteActivity(act)}
-                              >
-                                Supprimer
-                              </button>
-                            </div>
+                            {modeEdition && (
+                              <div className="activity-actions">
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleActivityObligatoire(act)}
+                                >
+                                  {actObligatoire ? "Facultatif" : "Obligatoire"}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="button-danger"
+                                  disabled={actObligatoire}
+                                  onClick={() => handleDeleteActivity(act)}
+                                >
+                                  Supprimer
+                                </button>
+                              </div>
+                            )}
                           </li>
                         );
                       })}
                     </ul>
                   )}
 
-                  <form
-                    onSubmit={(e) => handleAddActivity(e, step.id, activities.length)}
-                    className="activity-form"
-                  >
-                    <input
-                      type="text"
-                      placeholder="Nouvelle activité"
-                      value={actForm.nom}
-                      onChange={(e) => updateActivityForm(step.id, { nom: e.target.value })}
-                    />
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="Coût (DH)"
-                      value={actForm.cout}
-                      onChange={(e) => updateActivityForm(step.id, { cout: e.target.value })}
-                    />
-                    <label className="checkbox-label">
+                  {modeEdition && (
+                    <form
+                      onSubmit={(e) => handleAddActivity(e, step.id, activities.length)}
+                      className="activity-form"
+                    >
                       <input
-                        type="checkbox"
-                        checked={Boolean(actForm.est_obligatoire)}
-                        onChange={(e) =>
-                          updateActivityForm(step.id, { est_obligatoire: e.target.checked })
-                        }
+                        type="text"
+                        placeholder="Nouvelle activité"
+                        value={actForm.nom}
+                        onChange={(e) => updateActivityForm(step.id, { nom: e.target.value })}
                       />
-                      Obligatoire
-                    </label>
-                    <button type="submit">+ Activité</button>
-                  </form>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="Coût (DH)"
+                        value={actForm.cout}
+                        onChange={(e) => updateActivityForm(step.id, { cout: e.target.value })}
+                      />
+                      <label className="checkbox-label">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(actForm.est_obligatoire)}
+                          onChange={(e) =>
+                            updateActivityForm(step.id, { est_obligatoire: e.target.checked })
+                          }
+                        />
+                        Obligatoire
+                      </label>
+                      <button type="submit">+ Activité</button>
+                    </form>
+                  )}
                 </div>
 
                 {/* ---------- Hébergement ---------- */}
@@ -410,17 +470,18 @@ function ItineraryDetails({ itineraire, onModifierItineraire }) {
                               <strong>{h.nom}</strong>
                               <span className="hebergement-detail">
                                 {Number(h.prix_par_nuit || 0).toFixed(2)} DH/nuit ×{" "}
-                                {h.nombre_nuits} nuit(s) ={" "}
-                                {coutHebergement(h).toFixed(2)} DH
+                                {h.nombre_nuits} nuit(s) = {coutHebergement(h).toFixed(2)} DH
                               </span>
                             </span>
-                            <button
-                              type="button"
-                              className="button-danger"
-                              onClick={() => handleDeleteHebergement(h)}
-                            >
-                              Supprimer
-                            </button>
+                            {modeEdition && (
+                              <button
+                                type="button"
+                                className="button-danger"
+                                onClick={() => handleDeleteHebergement(h)}
+                              >
+                                Supprimer
+                              </button>
+                            )}
                           </li>
                         ))}
                       </ul>
@@ -430,37 +491,39 @@ function ItineraryDetails({ itineraire, onModifierItineraire }) {
                     </>
                   )}
 
-                  <form
-                    onSubmit={(e) => handleAddHebergement(e, step.id)}
-                    className="hebergement-form"
-                  >
-                    <input
-                      type="text"
-                      placeholder="Nom (hôtel, riad, auberge...)"
-                      value={hebForm.nom}
-                      onChange={(e) => updateHebergementForm(step.id, { nom: e.target.value })}
-                    />
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder="Prix / nuit (DH)"
-                      value={hebForm.prix_par_nuit}
-                      onChange={(e) =>
-                        updateHebergementForm(step.id, { prix_par_nuit: e.target.value })
-                      }
-                    />
-                    <input
-                      type="number"
-                      min="1"
-                      placeholder="Nuits"
-                      value={hebForm.nombre_nuits}
-                      onChange={(e) =>
-                        updateHebergementForm(step.id, { nombre_nuits: e.target.value })
-                      }
-                    />
-                    <button type="submit">+ Hébergement</button>
-                  </form>
+                  {modeEdition && (
+                    <form
+                      onSubmit={(e) => handleAddHebergement(e, step.id)}
+                      className="hebergement-form"
+                    >
+                      <input
+                        type="text"
+                        placeholder="Nom (hôtel, riad, auberge...)"
+                        value={hebForm.nom}
+                        onChange={(e) => updateHebergementForm(step.id, { nom: e.target.value })}
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="Prix / nuit (DH)"
+                        value={hebForm.prix_par_nuit}
+                        onChange={(e) =>
+                          updateHebergementForm(step.id, { prix_par_nuit: e.target.value })
+                        }
+                      />
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="Nuits"
+                        value={hebForm.nombre_nuits}
+                        onChange={(e) =>
+                          updateHebergementForm(step.id, { nombre_nuits: e.target.value })
+                        }
+                      />
+                      <button type="submit">+ Hébergement</button>
+                    </form>
+                  )}
                 </div>
               </div>
             );
