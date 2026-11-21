@@ -31,4 +31,8 @@ class Step extends Model
     {
         return $this->hasMany(Activity::class)->orderBy('ordre');
     }
+    public function accommodations()
+    {
+        return $this->hasMany(Accommodation::class);
+    }
 }

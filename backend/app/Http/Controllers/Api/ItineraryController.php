@@ -13,7 +13,7 @@ class ItineraryController extends Controller
     {
         $today = Carbon::today()->toDateString();
 
-        $query = Itinerary::with('steps.activities');
+        $query = Itinerary::with(['steps.activities', 'steps.accommodations']);
 
         if ($request->user()) {
             $query->where('user_id', $request->user()->id);
@@ -76,12 +76,18 @@ class ItineraryController extends Controller
             'ordre' => 1,
         ]);
 
-        return response()->json($itinerary->load('steps.activities'), 201);
+        return response()->json(
+            $itinerary->load(['steps.activities', 'steps.accommodations']),
+            201
+        );
     }
 
     public function show(Itinerary $itinerary)
     {
-        return response()->json($itinerary->load('steps.activities'), 200);
+        return response()->json(
+            $itinerary->load(['steps.activities', 'steps.accommodations']),
+            200
+        );
     }
 
     public function update(Request $request, Itinerary $itinerary)
@@ -97,7 +103,10 @@ class ItineraryController extends Controller
 
         $itinerary->update($validated);
 
-        return response()->json($itinerary->load('steps.activities'), 200);
+        return response()->json(
+            $itinerary->load(['steps.activities', 'steps.accommodations']),
+            200
+        );
     }
 
     public function destroy(Itinerary $itinerary)
