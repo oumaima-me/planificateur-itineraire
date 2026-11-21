@@ -6,78 +6,87 @@ import Dashboard from "./pages/Dashboard";
 import MyItineraries from "./pages/MyItineraries";
 import CreateItinerary from "./pages/CreateItinerary";
 import ItineraryDetails from "./pages/ItineraryDetails";
-import AdminSpace from "./pages/AdminSpace";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+
+function formatItineraryFromApi(item, fallbackSteps = []) {
+  const rawSteps = Array.isArray(item.steps) ? item.steps : fallbackSteps;
+
+  const formattedSteps = rawSteps.map((step) => ({
+    ...step,
+    estObligatoire: Boolean(step.est_obligatoire ?? step.estObligatoire),
+    activites: Array.isArray(step.activities) ? step.activities : step.activites || [],
+  }));
+
+  return {
+    ...item,
+    dateDebut: item.date_debut,
+    dateFin: item.date_fin,
+    budgetTotal: item.budget,
+    steps: formattedSteps,
+    etapes: formattedSteps,
+  };
+}
 
 function App() {
   const [utilisateur, setUtilisateur] = useState(() => {
     const savedUser = localStorage.getItem("utilisateur");
-    return savedUser ? JSON.parse(savedUser) : null;
+    const savedToken = localStorage.getItem("token");
+    return savedUser && savedToken ? JSON.parse(savedUser) : null;
   });
 
   const [authMode, setAuthMode] = useState("login");
 
-  const [utilisateurs, setUtilisateurs] = useState([
-    { id: 1, nom: "Mohamed (Admin)", email: "admin@example.com", role: "admin" },
-    { id: 2, nom: "Fatima (Voyageuse)", email: "fatima@example.com", role: "user" },
-  ]);
-
   const [pageActuelle, setPageActuelle] = useState(() => {
-    const savedUser = localStorage.getItem("utilisateur");
-    if (savedUser) {
-      const parsed = JSON.parse(savedUser);
-      return parsed.role === "admin" ? "admin" : "dashboard";
-    }
-    return "dashboard";
+    return localStorage.getItem("pageActuelle") || "dashboard";
   });
 
   const [itineraires, setItineraires] = useState([]);
-
-  // Charger les itinéraires depuis l'API Laravel au démarrage
-  useEffect(() => {
-    if (utilisateur) {
-      api.get("/itineraries")
-        .then((response) => {
-          // Transformation des données Laravel (snake_case) vers le format React (camelCase)
-          const formatted = response.data.map((item) => ({
-            ...item,
-            dateDebut: item.date_debut,
-            dateFin: item.date_fin,
-            budgetTotal: item.budget,
-            etapes: item.steps || [],
-          }));
-          setItineraires(formatted);
-        })
-        .catch((error) => {
-          console.error("Erreur lors de la récupération des itinéraires :", error);
-        });
-    }
-  }, [utilisateur]);
-
   const [itineraireSelectionne, setItineraireSelectionne] = useState(null);
   const [itineraireAModifier, setItineraireAModifier] = useState(null);
 
-  function handleLogin(data) {
+  useEffect(() => {
+    localStorage.setItem("pageActuelle", pageActuelle);
+  }, [pageActuelle]);
+
+  useEffect(() => {
+    if (!utilisateur) {
+      setItineraires([]);
+      return;
+    }
+
+    api
+      .get("/itineraries")
+      .then((response) => {
+        const formatted = response.data.map((item) => formatItineraryFromApi(item));
+        setItineraires(formatted);
+
+        const savedSelectedId = localStorage.getItem("itineraireSelectionneId");
+        if (savedSelectedId) {
+          const found = formatted.find((i) => String(i.id) === String(savedSelectedId));
+          if (found) {
+            setItineraireSelectionne(found);
+          } else if (pageActuelle === "details") {
+            setPageActuelle("dashboard");
+          }
+        }
+      })
+      .catch((error) => {
+        console.error("Erreur lors de la récupération des itinéraires :", error);
+        if (error.response?.status === 401) {
+          setUtilisateur(null);
+        }
+      });
+  }, [utilisateur]);
+
+  function handleAuthSuccess(data) {
     const user = data?.user ?? data;
     if (data?.token) {
       localStorage.setItem("token", data.token);
     }
     setUtilisateur(user);
     localStorage.setItem("utilisateur", JSON.stringify(user));
-    setPageActuelle(user.role === "admin" ? "admin" : "dashboard");
-  }
-
-  function handleRegister(data) {
-    const newUser = data?.user ?? data;
-    if (data?.token) {
-      localStorage.setItem("token", data.token);
-    }
-    setUtilisateurs((prev) => {
-      const exists = prev.some((u) => u.id === newUser.id || u.email === newUser.email);
-      return exists ? prev : [...prev, newUser];
-    });
-    handleLogin(data);
+    setPageActuelle("dashboard");
   }
 
   function handleLogout() {
@@ -85,6 +94,10 @@ function App() {
     setUtilisateur(null);
     localStorage.removeItem("utilisateur");
     localStorage.removeItem("token");
+    localStorage.removeItem("pageActuelle");
+    localStorage.removeItem("itineraireSelectionneId");
+    setItineraireSelectionne(null);
+    setItineraireAModifier(null);
     setAuthMode("login");
   }
 
@@ -94,41 +107,34 @@ function App() {
       titre: itinerairesDonnees.titre,
       description: itinerairesDonnees.description || "",
       destination: itinerairesDonnees.destination,
-      date_debut: itinerairesDonnees.dateDebut,
-      date_fin: itinerairesDonnees.dateFin,
-      budget: itinerairesDonnees.budgetTotal,
+      date_debut: itinerairesDonnees.dateDebut || null,
+      date_fin: itinerairesDonnees.dateFin || null,
+      budget: itinerairesDonnees.budgetTotal ?? null,
     };
 
     try {
       if (itineraireAModifier) {
-        // Modification (PUT)
         const response = await api.put(`/itineraries/${itineraireAModifier.id}`, payload);
-        const misAJour = {
-          ...response.data,
-          dateDebut: response.data.date_debut,
-          dateFin: response.data.date_fin,
-          budgetTotal: response.data.budget,
-          etapes: itineraireAModifier.etapes || [],
-        };
-        setItineraires(itineraires.map((i) => (i.id === misAJour.id ? misAJour : i)));
+        const misAJour = formatItineraryFromApi(response.data, itineraireAModifier.etapes || []);
+
+        setItineraires((prev) =>
+          prev.map((i) => (i.id === misAJour.id ? misAJour : i))
+        );
+        if (itineraireSelectionne?.id === misAJour.id) {
+          setItineraireSelectionne(misAJour);
+        }
       } else {
-        // Création (POST)
         const response = await api.post("/itineraries", payload);
-        const nouveau = {
-          ...response.data,
-          dateDebut: response.data.date_debut,
-          dateFin: response.data.date_fin,
-          budgetTotal: response.data.budget,
-          etapes: [],
-        };
-        setItineraires([...itineraires, nouveau]);
+        const nouveau = formatItineraryFromApi(response.data);
+
+        setItineraires((prev) => [nouveau, ...prev]);
       }
 
       setItineraireAModifier(null);
       setPageActuelle("itineraires");
     } catch (error) {
       console.error(
-        "Erreur POST /itineraries :",
+        "Erreur lors de l'enregistrement de l'itinéraire :",
         error.response?.status,
         error.response?.data || error.message
       );
@@ -148,9 +154,10 @@ function App() {
   async function supprimerItineraire(id) {
     try {
       await api.delete(`/itineraries/${id}`);
-      setItineraires(itineraires.filter((i) => i.id !== id));
+      setItineraires((prev) => prev.filter((i) => i.id !== id));
       if (itineraireSelectionne?.id === id) {
         setItineraireSelectionne(null);
+        localStorage.removeItem("itineraireSelectionneId");
         setPageActuelle("itineraires");
       }
     } catch (error) {
@@ -165,11 +172,8 @@ function App() {
 
   function ouvrirDetails(itineraire) {
     setItineraireSelectionne(itineraire);
+    localStorage.setItem("itineraireSelectionneId", String(itineraire.id));
     setPageActuelle("details");
-  }
-
-  function supprimerUtilisateur(id) {
-    setUtilisateurs(utilisateurs.filter((u) => u.id !== id));
   }
 
   if (!utilisateur) {
@@ -177,12 +181,12 @@ function App() {
       <div className="auth-wrapper">
         {authMode === "login" ? (
           <Login
-            onLogin={handleLogin}
+            onLogin={handleAuthSuccess}
             onSwitchToRegister={() => setAuthMode("register")}
           />
         ) : (
           <Register
-            onRegister={handleRegister}
+            onRegister={handleAuthSuccess}
             onSwitchToLogin={() => setAuthMode("login")}
           />
         )}
@@ -191,17 +195,6 @@ function App() {
   }
 
   function afficherPage() {
-    if (utilisateur.role === "admin") {
-      return (
-        <AdminSpace
-          utilisateurs={utilisateurs}
-          itineraires={itineraires}
-          onSupprimerUtilisateur={supprimerUtilisateur}
-          onSupprimerItineraire={supprimerItineraire}
-        />
-      );
-    }
-
     switch (pageActuelle) {
       case "dashboard":
         return (
@@ -239,8 +232,11 @@ function App() {
           <ItineraryDetails
             itineraire={itineraireSelectionne}
             onModifierItineraire={(misAJour) => {
-              setItineraires(itineraires.map((i) => (i.id === misAJour.id ? misAJour : i)));
-              setItineraireSelectionne(misAJour);
+              const formatted = formatItineraryFromApi(misAJour);
+              setItineraires((prev) =>
+                prev.map((i) => (i.id === formatted.id ? formatted : i))
+              );
+              setItineraireSelectionne(formatted);
             }}
           />
         );
@@ -260,11 +256,15 @@ function App() {
 
   return (
     <div className="app">
-      <Sidebar onNavigate={setPageActuelle} pageActuelle={pageActuelle} utilisateur={utilisateur} />
+      <Sidebar
+        onNavigate={setPageActuelle}
+        pageActuelle={pageActuelle}
+        utilisateur={utilisateur}
+      />
       <main className="main-content">
         <header className="header">
           <span className="user-info">
-            Connecté en tant que : <strong>{utilisateur.nom}</strong> ({utilisateur.role})
+            Connecté en tant que : <strong>{utilisateur.nom || utilisateur.name}</strong>
           </span>
           <button onClick={handleLogout} className="button-danger">
             Se déconnecter

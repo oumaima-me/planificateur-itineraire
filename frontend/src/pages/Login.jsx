@@ -26,7 +26,6 @@ function Login({ onLogin, onSwitchToRegister }) {
         password,
       });
 
-      // response.data contient { user, token }
       onLogin(response.data);
     } catch (error) {
       const message =

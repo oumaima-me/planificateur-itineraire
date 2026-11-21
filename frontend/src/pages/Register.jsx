@@ -29,7 +29,6 @@ function Register({ onRegister, onSwitchToLogin }) {
         password_confirmation: password,
       });
 
-      // response.data contient { user, token }
       onRegister(response.data);
     } catch (error) {
       const firstValidationError = error.response?.data?.errors
