@@ -12,10 +12,23 @@ class Step extends Model
         'notes',
         'date_etape',
         'ordre',
+        'est_obligatoire',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'est_obligatoire' => 'boolean',
+        ];
+    }
 
     public function itinerary()
     {
         return $this->belongsTo(Itinerary::class);
+    }
+
+    public function activities()
+    {
+        return $this->hasMany(Activity::class)->orderBy('ordre');
     }
 }

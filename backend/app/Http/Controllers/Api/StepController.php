@@ -10,7 +10,7 @@ class StepController extends Controller
 {
     public function index()
     {
-        return response()->json(Step::all(), 200);
+        return response()->json(Step::with('activities')->orderBy('ordre')->get(), 200);
     }
 
     public function store(Request $request)
@@ -21,15 +21,19 @@ class StepController extends Controller
             'notes' => 'nullable|string',
             'date_etape' => 'nullable|date',
             'ordre' => 'nullable|integer',
+            'est_obligatoire' => 'nullable|boolean',
         ]);
 
+        $validated['est_obligatoire'] = $validated['est_obligatoire'] ?? false;
+
         $step = Step::create($validated);
-        return response()->json($step, 201);
+
+        return response()->json($step->load('activities'), 201);
     }
 
     public function show(Step $step)
     {
-        return response()->json($step, 200);
+        return response()->json($step->load('activities'), 200);
     }
 
     public function update(Request $request, Step $step)
@@ -39,15 +43,24 @@ class StepController extends Controller
             'notes' => 'nullable|string',
             'date_etape' => 'nullable|date',
             'ordre' => 'nullable|integer',
+            'est_obligatoire' => 'nullable|boolean',
         ]);
 
         $step->update($validated);
-        return response()->json($step, 200);
+
+        return response()->json($step->load('activities'), 200);
     }
 
     public function destroy(Step $step)
     {
+        if ($step->est_obligatoire) {
+            return response()->json([
+                'message' => 'Une étape obligatoire ne peut pas être supprimée.',
+            ], 422);
+        }
+
         $step->delete();
+
         return response()->json(null, 204);
     }
 }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\ActivityController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ItineraryController;
 use App\Http\Controllers\Api\StepController;
@@ -14,7 +15,8 @@ Route::middleware('auth:sanctum')->group(function () {
         return $request->user();
     });
     Route::post('/logout', [AuthController::class, 'logout']);
-});
 
-Route::apiResource('itineraries', ItineraryController::class);
-Route::apiResource('steps', StepController::class);
+    Route::apiResource('itineraries', ItineraryController::class);
+    Route::apiResource('steps', StepController::class);
+    Route::apiResource('activities', ActivityController::class);
+});

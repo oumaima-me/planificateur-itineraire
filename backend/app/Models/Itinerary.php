@@ -16,13 +16,22 @@ class Itinerary extends Model
         'budget',
     ];
 
-    public function steps()
+    protected function casts(): array
     {
-        return $this->hasMany(Step::class);
+        return [
+            'date_debut' => 'date:Y-m-d',
+            'date_fin' => 'date:Y-m-d',
+            'budget' => 'decimal:2',
+        ];
     }
 
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function steps()
+    {
+        return $this->hasMany(Step::class)->orderBy('ordre');
     }
 }
