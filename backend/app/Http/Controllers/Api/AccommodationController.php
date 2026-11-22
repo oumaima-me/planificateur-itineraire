@@ -4,13 +4,13 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Accommodation;
+use App\Services\AccommodationService;
 use Illuminate\Http\Request;
 
 class AccommodationController extends Controller
 {
-    public function index()
+    public function __construct(private readonly AccommodationService $accommodationService)
     {
-        return response()->json(Accommodation::all(), 200);
     }
 
     public function store(Request $request)
@@ -22,14 +22,9 @@ class AccommodationController extends Controller
             'nombre_nuits' => 'required|integer|min:1',
         ]);
 
-        $accommodation = Accommodation::create($validated);
+        $accommodation = $this->accommodationService->createAccommodation($validated);
 
         return response()->json($accommodation, 201);
-    }
-
-    public function show(Accommodation $accommodation)
-    {
-        return response()->json($accommodation, 200);
     }
 
     public function update(Request $request, Accommodation $accommodation)
@@ -40,14 +35,14 @@ class AccommodationController extends Controller
             'nombre_nuits' => 'sometimes|integer|min:1',
         ]);
 
-        $accommodation->update($validated);
+        $updated = $this->accommodationService->updateAccommodation($accommodation, $validated);
 
-        return response()->json($accommodation, 200);
+        return response()->json($updated, 200);
     }
 
     public function destroy(Accommodation $accommodation)
     {
-        $accommodation->delete();
+        $this->accommodationService->deleteAccommodation($accommodation);
 
         return response()->json(null, 204);
     }

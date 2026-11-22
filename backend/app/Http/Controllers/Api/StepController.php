@@ -4,13 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Step;
+use App\Services\StepService;
+use DomainException;
 use Illuminate\Http\Request;
 
 class StepController extends Controller
 {
-    public function index()
+    public function __construct(private readonly StepService $stepService)
     {
-        return response()->json(Step::with('activities')->orderBy('ordre')->get(), 200);
     }
 
     public function store(Request $request)
@@ -20,20 +21,13 @@ class StepController extends Controller
             'nom' => 'required|string|max:255',
             'notes' => 'nullable|string',
             'date_etape' => 'nullable|date',
-            'ordre' => 'nullable|integer',
+            'ordre' => 'nullable|integer|min:1',
             'est_obligatoire' => 'nullable|boolean',
         ]);
 
-        $validated['est_obligatoire'] = $validated['est_obligatoire'] ?? false;
+        $step = $this->stepService->createStep($validated);
 
-        $step = Step::create($validated);
-
-        return response()->json($step->load('activities'), 201);
-    }
-
-    public function show(Step $step)
-    {
-        return response()->json($step->load('activities'), 200);
+        return response()->json($step, 201);
     }
 
     public function update(Request $request, Step $step)
@@ -42,25 +36,22 @@ class StepController extends Controller
             'nom' => 'sometimes|string|max:255',
             'notes' => 'nullable|string',
             'date_etape' => 'nullable|date',
-            'ordre' => 'nullable|integer',
-            'est_obligatoire' => 'nullable|boolean',
+            'ordre' => 'sometimes|integer|min:1',
+            'est_obligatoire' => 'sometimes|boolean',
         ]);
 
-        $step->update($validated);
+        $updated = $this->stepService->updateStep($step, $validated);
 
-        return response()->json($step->load('activities'), 200);
+        return response()->json($updated, 200);
     }
 
     public function destroy(Step $step)
     {
-        if ($step->est_obligatoire) {
-            return response()->json([
-                'message' => 'Une étape obligatoire ne peut pas être supprimée.',
-            ], 422);
+        try {
+            $this->stepService->deleteStep($step);
+            return response()->json(null, 204);
+        } catch (DomainException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
         }
-
-        $step->delete();
-
-        return response()->json(null, 204);
     }
 }

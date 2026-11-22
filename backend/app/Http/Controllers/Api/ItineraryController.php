@@ -4,36 +4,18 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Itinerary;
+use App\Services\ItineraryService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 
 class ItineraryController extends Controller
 {
+    public function __construct(private readonly ItineraryService $itineraryService)
+    {
+    }
+
     public function index(Request $request)
     {
-        $today = Carbon::today()->toDateString();
-
-        $query = Itinerary::with(['steps.activities', 'steps.accommodations']);
-
-        if ($request->user()) {
-            $query->where('user_id', $request->user()->id);
-        }
-
-        $itineraries = $query->get()
-            ->sortBy(function ($itinerary) use ($today) {
-                $refDate = $itinerary->date_debut
-                    ? Carbon::parse($itinerary->date_debut)->toDateString()
-                    : ($itinerary->date_fin ? Carbon::parse($itinerary->date_fin)->toDateString() : null);
-
-                $isFuture = ! $refDate || $refDate >= $today;
-                $group = $isFuture ? 0 : 1; // 0 = futurs en premier, 1 = passés ensuite
-
-                $timestamp = $refDate ? Carbon::parse($refDate)->timestamp : PHP_INT_MAX;
-                $sortKey = $group === 0 ? $timestamp : -$timestamp;
-
-                return sprintf('%d-%020d', $group, $sortKey + 100000000000);
-            })
-            ->values();
+        $itineraries = $this->itineraryService->listForUser($request->user()?->id);
 
         return response()->json($itineraries, 200);
     }
@@ -50,44 +32,22 @@ class ItineraryController extends Controller
             'budget' => 'nullable|numeric',
         ]);
 
-        $validated['user_id'] = $request->user()?->id ?? $validated['user_id'] ?? null;
+        $userId = $request->user()?->id ?? $validated['user_id'] ?? null;
 
-        if (! $validated['user_id']) {
+        if (! $userId) {
             return response()->json(['message' => 'Utilisateur requis.'], 422);
         }
 
-        $itinerary = Itinerary::create($validated);
+        $itinerary = $this->itineraryService->createWithDefaults($validated, (int) $userId);
 
-        // Création automatique de l'étape obligatoire par défaut
-        $defaultStep = $itinerary->steps()->create([
-            'nom' => 'Étape obligatoire : ' . $itinerary->destination,
-            'notes' => 'Étape par défaut obligatoire',
-            'date_etape' => $itinerary->date_debut,
-            'ordre' => 1,
-            'est_obligatoire' => true,
-        ]);
-
-        // Activité par défaut liée à l'étape obligatoire
-        $defaultStep->activities()->create([
-            'nom' => 'Arrivée et installation',
-            'notes' => 'Activité par défaut',
-            'cout' => 0,
-            'est_obligatoire' => true,
-            'ordre' => 1,
-        ]);
-
-        return response()->json(
-            $itinerary->load(['steps.activities', 'steps.accommodations']),
-            201
-        );
+        return response()->json($itinerary, 201);
     }
 
     public function show(Itinerary $itinerary)
     {
-        return response()->json(
-            $itinerary->load(['steps.activities', 'steps.accommodations']),
-            200
-        );
+        $details = $this->itineraryService->getDetails($itinerary);
+
+        return response()->json($details, 200);
     }
 
     public function update(Request $request, Itinerary $itinerary)
@@ -101,17 +61,14 @@ class ItineraryController extends Controller
             'budget' => 'nullable|numeric',
         ]);
 
-        $itinerary->update($validated);
+        $updated = $this->itineraryService->updateItinerary($itinerary, $validated);
 
-        return response()->json(
-            $itinerary->load(['steps.activities', 'steps.accommodations']),
-            200
-        );
+        return response()->json($updated, 200);
     }
 
     public function destroy(Itinerary $itinerary)
     {
-        $itinerary->delete();
+        $this->itineraryService->deleteItinerary($itinerary);
 
         return response()->json(null, 204);
     }

@@ -4,13 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Activity;
+use App\Services\ActivityService;
+use DomainException;
 use Illuminate\Http\Request;
 
 class ActivityController extends Controller
 {
-    public function index()
+    public function __construct(private readonly ActivityService $activityService)
     {
-        return response()->json(Activity::orderBy('ordre')->get(), 200);
     }
 
     public function store(Request $request)
@@ -21,20 +22,12 @@ class ActivityController extends Controller
             'notes' => 'nullable|string',
             'cout' => 'nullable|numeric|min:0',
             'est_obligatoire' => 'nullable|boolean',
-            'ordre' => 'nullable|integer',
+            'ordre' => 'nullable|integer|min:1',
         ]);
 
-        $validated['cout'] = $validated['cout'] ?? 0;
-        $validated['est_obligatoire'] = $validated['est_obligatoire'] ?? false;
-
-        $activity = Activity::create($validated);
+        $activity = $this->activityService->createActivity($validated);
 
         return response()->json($activity, 201);
-    }
-
-    public function show(Activity $activity)
-    {
-        return response()->json($activity, 200);
     }
 
     public function update(Request $request, Activity $activity)
@@ -42,26 +35,23 @@ class ActivityController extends Controller
         $validated = $request->validate([
             'nom' => 'sometimes|string|max:255',
             'notes' => 'nullable|string',
-            'cout' => 'nullable|numeric|min:0',
-            'est_obligatoire' => 'nullable|boolean',
-            'ordre' => 'nullable|integer',
+            'cout' => 'sometimes|numeric|min:0',
+            'est_obligatoire' => 'sometimes|boolean',
+            'ordre' => 'sometimes|integer|min:1',
         ]);
 
-        $activity->update($validated);
+        $updated = $this->activityService->updateActivity($activity, $validated);
 
-        return response()->json($activity, 200);
+        return response()->json($updated, 200);
     }
 
     public function destroy(Activity $activity)
     {
-        if ($activity->est_obligatoire) {
-            return response()->json([
-                'message' => 'Une activité obligatoire ne peut pas être supprimée.',
-            ], 422);
+        try {
+            $this->activityService->deleteActivity($activity);
+            return response()->json(null, 204);
+        } catch (DomainException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
         }
-
-        $activity->delete();
-
-        return response()->json(null, 204);
     }
 }
