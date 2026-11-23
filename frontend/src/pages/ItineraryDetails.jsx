@@ -1,8 +1,16 @@
 import { useState, useEffect, useCallback } from "react";
-import { BedDouble, MapPinned, Eye, Pencil, RefreshCw, ArrowLeft } from "lucide-react";
+import {
+  BedDouble,
+  MapPinned,
+  Eye,
+  Pencil,
+  RefreshCw,
+  ArrowLeft,
+  Route,
+} from "lucide-react";
 import api from "../api/axios";
 
-function ItineraryDetails({ itineraire, onModifierItineraire, onRetour }) {
+function ItineraryDetails({ itineraire, onModifierItineraire, onRetour, onVoirResume }) {
   const [details, setDetails] = useState(itineraire);
   const [loading, setLoading] = useState(false);
   const [erreur, setErreur] = useState("");
@@ -237,7 +245,8 @@ function ItineraryDetails({ itineraire, onModifierItineraire, onRetour }) {
   }, 0);
 
   const totalHebergementCost = steps.reduce(
-    (sum, step) => sum + getHebergements(step).reduce((hSum, h) => hSum + coutHebergement(h), 0),
+    (sum, step) =>
+      sum + getHebergements(step).reduce((hSum, h) => hSum + coutHebergement(h), 0),
     0
   );
 
@@ -286,6 +295,15 @@ function ItineraryDetails({ itineraire, onModifierItineraire, onRetour }) {
           <button type="button" onClick={refreshDetails} disabled={loading}>
             <RefreshCw size={15} /> {loading ? "Actualisation..." : "Actualiser"}
           </button>
+          {onVoirResume && (
+            <button
+              type="button"
+              className="button-primary"
+              onClick={() => onVoirResume(details)}
+            >
+              <Route size={16} /> Terminer le planning & Résumé
+            </button>
+          )}
         </div>
       </div>
 
@@ -322,7 +340,9 @@ function ItineraryDetails({ itineraire, onModifierItineraire, onRetour }) {
       )}
 
       <section className="steps-section">
-        <h3>Programme détaillé ({steps.length} étape{steps.length > 1 ? "s" : ""})</h3>
+        <h3>
+          Programme détaillé ({steps.length} étape{steps.length > 1 ? "s" : ""})
+        </h3>
         {steps.length === 0 ? (
           <p className="empty-hint">Aucune étape pour cet itinéraire.</p>
         ) : (
@@ -332,8 +352,14 @@ function ItineraryDetails({ itineraire, onModifierItineraire, onRetour }) {
             const hebergements = getHebergements(step);
             const actForm = getActivityForm(step.id);
             const hebForm = getHebergementForm(step.id);
-            const coutHebergementEtape = hebergements.reduce((s, h) => s + coutHebergement(h), 0);
-            const coutActivitesEtape = activities.reduce((s, a) => s + (Number(a.cout) || 0), 0);
+            const coutHebergementEtape = hebergements.reduce(
+              (s, h) => s + coutHebergement(h),
+              0
+            );
+            const coutActivitesEtape = activities.reduce(
+              (s, a) => s + (Number(a.cout) || 0),
+              0
+            );
 
             return (
               <div key={step.id} className="step-card">
@@ -345,14 +371,19 @@ function ItineraryDetails({ itineraire, onModifierItineraire, onRetour }) {
                     {step.date_etape && (
                       <span className="step-date"> — {step.date_etape}</span>
                     )}
-                    <span className={isObligatoire ? "badge-obligatoire" : "badge-facultatif"}>
+                    <span
+                      className={isObligatoire ? "badge-obligatoire" : "badge-facultatif"}
+                    >
                       {isObligatoire ? "Obligatoire par défaut" : "Facultatif"}
                     </span>
                   </div>
 
                   {modeEdition && (
                     <div className="step-actions">
-                      <button type="button" onClick={() => handleToggleStepObligatoire(step)}>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleStepObligatoire(step)}
+                      >
                         {isObligatoire ? "Passer facultatif" : "Rendre obligatoire"}
                       </button>
                       <button
@@ -386,7 +417,8 @@ function ItineraryDetails({ itineraire, onModifierItineraire, onRetour }) {
                         return (
                           <li key={act.id} className="activity-item">
                             <span>
-                              <strong>{act.nom}</strong> — {Number(act.cout || 0).toFixed(2)} DH{" "}
+                              <strong>{act.nom}</strong> —{" "}
+                              {Number(act.cout || 0).toFixed(2)} DH{" "}
                               <span
                                 className={
                                   actObligatoire ? "badge-obligatoire" : "badge-facultatif"
@@ -429,7 +461,9 @@ function ItineraryDetails({ itineraire, onModifierItineraire, onRetour }) {
                         type="text"
                         placeholder="Nouvelle activité"
                         value={actForm.nom}
-                        onChange={(e) => updateActivityForm(step.id, { nom: e.target.value })}
+                        onChange={(e) =>
+                          updateActivityForm(step.id, { nom: e.target.value })
+                        }
                       />
                       <input
                         type="number"
@@ -437,14 +471,18 @@ function ItineraryDetails({ itineraire, onModifierItineraire, onRetour }) {
                         min="0"
                         placeholder="Coût (DH)"
                         value={actForm.cout}
-                        onChange={(e) => updateActivityForm(step.id, { cout: e.target.value })}
+                        onChange={(e) =>
+                          updateActivityForm(step.id, { cout: e.target.value })
+                        }
                       />
                       <label className="checkbox-label">
                         <input
                           type="checkbox"
                           checked={Boolean(actForm.est_obligatoire)}
                           onChange={(e) =>
-                            updateActivityForm(step.id, { est_obligatoire: e.target.checked })
+                            updateActivityForm(step.id, {
+                              est_obligatoire: e.target.checked,
+                            })
                           }
                         />
                         Obligatoire
@@ -500,7 +538,9 @@ function ItineraryDetails({ itineraire, onModifierItineraire, onRetour }) {
                         type="text"
                         placeholder="Nom (hôtel, riad, auberge...)"
                         value={hebForm.nom}
-                        onChange={(e) => updateHebergementForm(step.id, { nom: e.target.value })}
+                        onChange={(e) =>
+                          updateHebergementForm(step.id, { nom: e.target.value })
+                        }
                       />
                       <input
                         type="number"
@@ -509,7 +549,9 @@ function ItineraryDetails({ itineraire, onModifierItineraire, onRetour }) {
                         placeholder="Prix / nuit (DH)"
                         value={hebForm.prix_par_nuit}
                         onChange={(e) =>
-                          updateHebergementForm(step.id, { prix_par_nuit: e.target.value })
+                          updateHebergementForm(step.id, {
+                            prix_par_nuit: e.target.value,
+                          })
                         }
                       />
                       <input
@@ -518,7 +560,9 @@ function ItineraryDetails({ itineraire, onModifierItineraire, onRetour }) {
                         placeholder="Nuits"
                         value={hebForm.nombre_nuits}
                         onChange={(e) =>
-                          updateHebergementForm(step.id, { nombre_nuits: e.target.value })
+                          updateHebergementForm(step.id, {
+                            nombre_nuits: e.target.value,
+                          })
                         }
                       />
                       <button type="submit">+ Hébergement</button>

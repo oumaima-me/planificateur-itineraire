@@ -761,3 +761,304 @@ tbody tr:hover { background: var(--bg); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
 }
+
+/* === PAGE RÉCAPITULATIVE (TIMELINE) === */
+.summary-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+}
+
+.summary-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.summary-badge {
+  background: #e0f2fe;
+  color: #0369a1;
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.summary-hero-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  background: linear-gradient(135deg, #0f172a, #1e3a5f);
+  color: #ffffff;
+  padding: 1.75rem 2rem;
+  border-radius: 16px;
+  margin-bottom: 2.5rem;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.15);
+}
+
+.summary-hero-info h1 {
+  margin: 0 0 0.6rem;
+  font-size: 1.65rem;
+}
+
+.summary-meta {
+  display: flex;
+  gap: 1.25rem;
+  font-size: 0.92rem;
+  color: #cbd5e1;
+}
+
+.summary-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.summary-start-budget {
+  background: rgba(255, 255, 255, 0.12);
+  padding: 1rem 1.4rem;
+  border-radius: 12px;
+  text-align: right;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.budget-label {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: #bae6fd;
+}
+
+.budget-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-top: 0.25rem;
+}
+
+/* === LE LONG TRAIT VERTICAL === */
+.timeline-wrapper {
+  position: relative;
+  padding-left: 1rem;
+}
+
+.timeline-endpoint {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0.5rem 0;
+}
+
+.endpoint-dot {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #0284c7;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  flex-shrink: 0;
+}
+
+.endpoint-dot.finish {
+  background: #0f172a;
+}
+
+.timeline-track {
+  position: relative;
+  margin-left: 17px; /* Centré sous le point de départ */
+  padding-left: 2.25rem;
+  border-left: 4px solid #0284c7; /* Le long trait vertical */
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  padding-top: 1.25rem;
+  padding-bottom: 1.25rem;
+}
+
+.timeline-node {
+  position: relative;
+}
+
+.timeline-marker {
+  position: absolute;
+  left: -3.2rem;
+  top: 1.1rem;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #0284c7;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid #f8fafc;
+  box-shadow: 0 0 0 3px #bae6fd;
+}
+
+.timeline-marker.optional {
+  background: #f59e0b;
+  box-shadow: 0 0 0 3px #fde68a;
+}
+
+.timeline-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+}
+
+.timeline-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.timeline-card-header h3 {
+  margin: 0.4rem 0 0.2rem;
+  font-size: 1.15rem;
+  color: #0f172a;
+}
+
+.step-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+}
+
+.tag-required {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.tag-optional {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.step-finance-box {
+  display: flex;
+  gap: 1rem;
+  background: #f8fafc;
+  padding: 0.6rem 0.9rem;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.step-cost,
+.step-remaining {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.8rem;
+}
+
+.step-cost strong {
+  color: #dc2626;
+  font-size: 0.95rem;
+}
+
+.step-remaining strong {
+  color: #059669;
+  font-size: 0.95rem;
+}
+
+.step-remaining.negative strong {
+  color: #dc2626;
+}
+
+.timeline-card-body {
+  margin-top: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.sub-items-group h4 {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.88rem;
+  color: #475569;
+  margin: 0 0 0.4rem;
+}
+
+.sub-items-group ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.sub-items-group li {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  padding: 0.4rem 0.75rem;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+.item-price {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+/* === BILAN FINANCIER FINAL === */
+.summary-final-card {
+  margin-top: 2.25rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  padding: 1.5rem 2rem;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 2px solid #0284c7;
+  box-shadow: 0 8px 20px rgba(2, 132, 199, 0.1);
+}
+
+.summary-final-card.over-budget {
+  border-color: #dc2626;
+}
+
+.final-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.final-stat span {
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.final-stat strong {
+  font-size: 1.35rem;
+  color: #0f172a;
+}
+
+.final-stat.highlight strong {
+  color: #059669;
+}
+
+.summary-final-card.over-budget .final-stat.highlight strong {
+  color: #dc2626;
+}

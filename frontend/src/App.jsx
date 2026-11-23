@@ -6,6 +6,7 @@ import Dashboard from "./pages/Dashboard";
 import CreateItinerary from "./pages/CreateItinerary";
 import MyItineraries from "./pages/MyItineraries";
 import ItineraryDetails from "./pages/ItineraryDetails";
+import ItinerarySummary from "./pages/ItinerarySummary";
 import "./App.css";
 
 const STORAGE_KEYS = {
@@ -152,7 +153,6 @@ function App() {
     if (isEditing) {
       setPage("itineraires");
     } else {
-      // Ouvre directement la page complète et organisée de l'itinéraire créé
       setItineraireSelectionneId(formatted.id);
       setPage("details");
     }
@@ -164,7 +164,7 @@ function App() {
       setItineraires((prev) => prev.filter((item) => item.id !== id));
       if (itineraireSelectionneId === id) {
         setItineraireSelectionneId(null);
-        if (page === "details") setPage("itineraires");
+        if (page === "details" || page === "summary") setPage("itineraires");
       }
     } catch (error) {
       console.error("Erreur suppression itinéraire :", error);
@@ -180,6 +180,13 @@ function App() {
   function handleSelectDetails(item) {
     setItineraireSelectionneId(item.id);
     setPage("details");
+  }
+
+  function handleOpenSummary(item) {
+    const target = item || itineraireActif;
+    if (!target?.id) return;
+    setItineraireSelectionneId(target.id);
+    setPage("summary");
   }
 
   function handleSyncUpdatedItinerary(updatedRaw) {
@@ -265,6 +272,17 @@ function App() {
                 </button>
               </li>
             )}
+            {itineraireActif && (
+              <li>
+                <button
+                  type="button"
+                  className={page === "summary" ? "active" : ""}
+                  onClick={() => setPage("summary")}
+                >
+                  Résumé & Timeline
+                </button>
+              </li>
+            )}
           </ul>
         </nav>
       </aside>
@@ -277,7 +295,8 @@ function App() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <span className="user-info">
-              Connecté : <strong>{utilisateurConnecte?.name || utilisateurConnecte?.email}</strong>
+              Connecté :{" "}
+              <strong>{utilisateurConnecte?.name || utilisateurConnecte?.email}</strong>
             </span>
             <button type="button" className="button-danger" onClick={handleLogout}>
               Déconnexion
@@ -329,6 +348,15 @@ function App() {
             itineraire={itineraireActif}
             onModifierItineraire={handleSyncUpdatedItinerary}
             onRetour={() => setPage("itineraires")}
+            onVoirResume={handleOpenSummary}
+          />
+        )}
+
+        {page === "summary" && (
+          <ItinerarySummary
+            itineraire={itineraireActif}
+            onRetour={() => setPage("details")}
+            onModifier={handleEditItinerary}
           />
         )}
       </div>
