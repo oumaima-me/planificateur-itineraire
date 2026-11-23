@@ -82,7 +82,7 @@ function Dashboard({
         </p>
 
         <p className="itinerary-meta">
-          Budget : {Number(item.budgetTotal ?? item.budget ?? 0).toFixed(2)} € | Étapes :{" "}
+          Budget : {Number(item.budgetTotal ?? item.budget ?? 0).toFixed(2)} DH | Étapes :{" "}
           {steps.length} ({obligatoireStepsCount} obligatoire(s))
         </p>
 
@@ -132,7 +132,7 @@ function Dashboard({
         </div>
         <div className="stat-box">
           <span>Budget cumulé</span>
-          <strong>{budgetTotal.toFixed(2)} €</strong>
+          <strong>{budgetTotal.toFixed(2)} DH</strong>
         </div>
       </section>
 
