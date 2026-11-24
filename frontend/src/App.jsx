@@ -113,7 +113,7 @@ function App() {
     }
   }, [token, chargerItineraires]);
 
-  function handleLoginSuccess(authData) {
+  function handleAuthSuccess(authData) {
     const receivedToken = authData?.token || authData?.access_token || "";
     const receivedUser = authData?.user || authData;
     setToken(receivedToken);
@@ -201,12 +201,13 @@ function App() {
       <div className="auth-wrapper">
         {authMode === "login" ? (
           <Login
-            onLoginSuccess={handleLoginSuccess}
+            onLoginSuccess={handleAuthSuccess}
             onSwitchToRegister={() => setAuthMode("register")}
           />
         ) : (
           <Register
-            onRegisterSuccess={handleLoginSuccess}
+            onRegister={handleAuthSuccess}
+            onRegisterSuccess={handleAuthSuccess}
             onSwitchToLogin={() => setAuthMode("login")}
           />
         )}

@@ -1,120 +1,214 @@
 import { useState, useEffect } from "react";
+import api from "../api/axios";
+import Input from "../components/Input";
+import Button from "../components/Button";
+import Card from "../components/Card";
 
-function CreateItinerary({ onEnregistrer, itineraireAModifier, onAnnulerModification }) {
+function extractValue(eventOrValue) {
+  if (typeof eventOrValue === "string" || typeof eventOrValue === "number") {
+    return String(eventOrValue);
+  }
+  return eventOrValue?.target?.value ?? "";
+}
+
+function CreateItinerary({
+  itineraireAEditer = null,
+  onSave,
+  onCreate,
+  onItineraryCreated,
+  onAnnuler,
+  onCancel,
+}) {
   const [titre, setTitre] = useState("");
   const [destination, setDestination] = useState("");
   const [dateDebut, setDateDebut] = useState("");
   const [dateFin, setDateFin] = useState("");
-  const [budgetTotal, setBudgetTotal] = useState("");
+  const [budget, setBudget] = useState("");
+  const [description, setDescription] = useState("");
+  const [erreur, setErreur] = useState("");
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (itineraireAModifier) {
-      setTitre(itineraireAModifier.titre);
-      setDestination(itineraireAModifier.destination);
-      setDateDebut(itineraireAModifier.dateDebut);
-      setDateFin(itineraireAModifier.dateFin);
-      setBudgetTotal(itineraireAModifier.budgetTotal);
+    if (itineraireAEditer) {
+      setTitre(itineraireAEditer.titre || "");
+      setDestination(itineraireAEditer.destination || "");
+      setDateDebut(
+        (itineraireAEditer.date_debut || itineraireAEditer.dateDebut || "").slice(0, 10)
+      );
+      setDateFin(
+        (itineraireAEditer.date_fin || itineraireAEditer.dateFin || "").slice(0, 10)
+      );
+      setBudget(
+        itineraireAEditer.budget !== undefined && itineraireAEditer.budget !== null
+          ? String(itineraireAEditer.budget)
+          : ""
+      );
+      setDescription(itineraireAEditer.description || "");
     } else {
       setTitre("");
       setDestination("");
       setDateDebut("");
       setDateFin("");
-      setBudgetTotal("");
+      setBudget("");
+      setDescription("");
     }
-  }, [itineraireAModifier]);
+    setErreur("");
+  }, [itineraireAEditer]);
 
-  function handleSubmit(e) {
+  const handleCancel = onAnnuler || onCancel;
+
+  async function handleSubmit(e) {
     e.preventDefault();
+    setErreur("");
 
-    const donneesItineraire = {
-      id: itineraireAModifier ? itineraireAModifier.id : Date.now(),
-      titre,
-      destination,
-      dateDebut,
-      dateFin,
-      budgetTotal: Number(budgetTotal),
-      etapes: itineraireAModifier ? itineraireAModifier.etapes || [] : [],
+    if (!titre.trim() || !destination.trim()) {
+      setErreur("Veuillez renseigner au moins le titre et la destination.");
+      return;
+    }
+
+    if (dateDebut && dateFin && dateFin < dateDebut) {
+      setErreur("La date de fin doit être postérieure ou égale à la date de début.");
+      return;
+    }
+
+    const payload = {
+      titre: titre.trim(),
+      destination: destination.trim(),
+      date_debut: dateDebut || null,
+      date_fin: dateFin || null,
+      budget: budget !== "" ? Number(budget) : 0,
+      description: description.trim() || null,
     };
 
-    onEnregistrer(donneesItineraire);
+    setLoading(true);
+    try {
+      const response = itineraireAEditer?.id
+        ? await api.put(`/itineraries/${itineraireAEditer.id}`, payload)
+        : await api.post("/itineraries", payload);
+
+      const savedItinerary = response.data?.data || response.data;
+      const notifyParent = onSave || onCreate || onItineraryCreated;
+      notifyParent?.(savedItinerary);
+    } catch (error) {
+      const firstValidationError = error.response?.data?.errors
+        ? Object.values(error.response.data.errors).flat()[0]
+        : null;
+
+      setErreur(
+        firstValidationError ||
+          error.response?.data?.message ||
+          "Erreur lors de l'enregistrement de l'itinéraire."
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
-    <div className="create-itinerary">
-      <h1>{itineraireAModifier ? "Modifier l'itinéraire" : "Créer un nouvel itinéraire"}</h1>
-      <p>
-        {itineraireAModifier
-          ? "Mettez à jour les informations générales. Pour gérer les étapes, ouvrez les détails de l'itinéraire."
-          : "Définissez les bases de votre voyage. Vous pourrez ensuite ajouter vos étapes dans les détails."}
-      </p>
+    <div className="page-container" style={{ maxWidth: "650px", margin: "0 auto" }}>
+      <div className="page-header">
+        <div>
+          <h2>
+            {itineraireAEditer?.id ? "Modifier l'itinéraire" : "Nouvel itinéraire"}
+          </h2>
+          <p>
+            {itineraireAEditer?.id
+              ? "Mettez à jour les informations de votre voyage"
+              : "Créez votre voyage : une étape et une activité par défaut seront ajoutées automatiquement"}
+          </p>
+        </div>
+      </div>
 
-      <form onSubmit={handleSubmit} className="card">
-        <div className="input-group">
-          <label>Titre du voyage</label>
-          <input
+      {erreur && (
+        <p className="error-message" style={{ color: "#dc2626", marginBottom: "1rem" }}>
+          {erreur}
+        </p>
+      )}
+
+      <Card>
+        <form onSubmit={handleSubmit} className="itinerary-form">
+          <Input
+            label="Titre de l'itinéraire"
             type="text"
-            placeholder="Ex: Découverte du Sud Marocain"
+            placeholder="Ex : Road trip dans le Sud"
             value={titre}
-            onChange={(e) => setTitre(e.target.value)}
-            required
+            onChange={(val) => setTitre(extractValue(val))}
           />
-        </div>
 
-        <div className="input-group">
-          <label>Destination principale</label>
-          <input
+          <Input
+            label="Destination"
             type="text"
-            placeholder="Ex: Marrakech - Merzouga"
+            placeholder="Ex : Agadir / Taroudant"
             value={destination}
-            onChange={(e) => setDestination(e.target.value)}
-            required
+            onChange={(val) => setDestination(extractValue(val))}
           />
-        </div>
 
-        <div className="input-group">
-          <label>Date de début</label>
-          <input
-            type="date"
-            value={dateDebut}
-            onChange={(e) => setDateDebut(e.target.value)}
-            required
-          />
-        </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+            <Input
+              label="Date de début"
+              type="date"
+              value={dateDebut}
+              onChange={(val) => setDateDebut(extractValue(val))}
+            />
 
-        <div className="input-group">
-          <label>Date de fin</label>
-          <input
-            type="date"
-            value={dateFin}
-            onChange={(e) => setDateFin(e.target.value)}
-            required
-          />
-        </div>
+            <Input
+              label="Date de fin"
+              type="date"
+              value={dateFin}
+              min={dateDebut || undefined}
+              onChange={(val) => setDateFin(extractValue(val))}
+            />
+          </div>
 
-        <div className="input-group">
-          <label>Budget total prévu (DH)</label>
-          <input
+          <Input
+            label="Budget prévisionnel (DH)"
             type="number"
-            placeholder="Ex: 6000"
-            value={budgetTotal}
-            onChange={(e) => setBudgetTotal(e.target.value)}
+            step="0.01"
             min="0"
-            required
+            placeholder="Ex : 3500"
+            value={budget}
+            onChange={(val) => setBudget(extractValue(val))}
           />
-        </div>
 
-        <div className="card-actions">
-          <button type="submit" className="button-primary">
-            {itineraireAModifier ? "Enregistrer les modifications" : "Créer l'itinéraire"}
-          </button>
+          <div className="form-group">
+            <label htmlFor="itinerary-description">Description (optionnel)</label>
+            <textarea
+              id="itinerary-description"
+              rows="3"
+              placeholder="Notes, objectifs du voyage..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
 
-          {itineraireAModifier && (
-            <button type="button" onClick={onAnnulerModification} className="button-secondary">
-              Annuler
-            </button>
-          )}
-        </div>
-      </form>
+          <div
+            style={{
+              marginTop: "1.25rem",
+              display: "flex",
+              gap: "0.75rem",
+              justifyContent: "flex-end",
+            }}
+          >
+            {handleCancel && (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleCancel}
+                disabled={loading}
+              >
+                Annuler
+              </Button>
+            )}
+            <Button type="submit" disabled={loading}>
+              {loading
+                ? "Enregistrement..."
+                : itineraireAEditer?.id
+                ? "Enregistrer les modifications"
+                : "Créer l'itinéraire"}
+            </Button>
+          </div>
+        </form>
+      </Card>
     </div>
   );
 }

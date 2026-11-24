@@ -1,7 +1,11 @@
 import { useMemo } from "react";
 
 function getRefDate(itinerary) {
-  const raw = itinerary.dateDebut || itinerary.date_debut || itinerary.dateFin || itinerary.date_fin;
+  const raw =
+    itinerary.dateDebut ||
+    itinerary.date_debut ||
+    itinerary.dateFin ||
+    itinerary.date_fin;
   return raw ? String(raw).slice(0, 10) : null;
 }
 
@@ -9,11 +13,38 @@ function Dashboard({
   itineraires = [],
   utilisateur,
   onNavigate,
+  onNouvelItineraire,
   onOuvrirDetails,
+  onVoirDetails,
   onModifierItineraire,
+  onModifier,
   onSupprimer,
 }) {
   const today = new Date().toISOString().slice(0, 10);
+
+  const handleOpenCreate = () => {
+    if (onNouvelItineraire) {
+      onNouvelItineraire();
+      return;
+    }
+    onNavigate?.("creation");
+  };
+
+  const handleOpenDetails = (item) => {
+    if (onOuvrirDetails) {
+      onOuvrirDetails(item);
+      return;
+    }
+    onVoirDetails?.(item);
+  };
+
+  const handleEdit = (item) => {
+    if (onModifierItineraire) {
+      onModifierItineraire(item);
+      return;
+    }
+    onModifier?.(item);
+  };
 
   const { futurs, passes, budgetTotal } = useMemo(() => {
     const upcoming = [];
@@ -87,10 +118,10 @@ function Dashboard({
         </p>
 
         <div className="itinerary-actions">
-          <button type="button" onClick={() => onOuvrirDetails?.(item)}>
+          <button type="button" onClick={() => handleOpenDetails(item)}>
             Détails & Étapes
           </button>
-          <button type="button" onClick={() => onModifierItineraire?.(item)}>
+          <button type="button" onClick={() => handleEdit(item)}>
             Modifier
           </button>
           <button
@@ -112,7 +143,7 @@ function Dashboard({
           <h2>Tableau de bord</h2>
           <p>Bienvenue, {utilisateur?.nom || utilisateur?.name}</p>
         </div>
-        <button type="button" onClick={() => onNavigate?.("creation")}>
+        <button type="button" onClick={handleOpenCreate}>
           + Nouvel itinéraire
         </button>
       </section>
@@ -139,7 +170,7 @@ function Dashboard({
       {orderedItineraries.length === 0 ? (
         <div className="empty-state">
           <p>Aucun itinéraire enregistré pour le moment.</p>
-          <button type="button" onClick={() => onNavigate?.("creation")}>
+          <button type="button" onClick={handleOpenCreate}>
             Créer mon premier itinéraire
           </button>
         </div>

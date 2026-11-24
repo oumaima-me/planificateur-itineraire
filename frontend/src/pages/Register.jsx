@@ -4,7 +4,14 @@ import Input from "../components/Input";
 import Button from "../components/Button";
 import Card from "../components/Card";
 
-function Register({ onRegister, onSwitchToLogin }) {
+function extractValue(eventOrValue) {
+  if (typeof eventOrValue === "string" || typeof eventOrValue === "number") {
+    return String(eventOrValue);
+  }
+  return eventOrValue?.target?.value ?? "";
+}
+
+function Register({ onRegister, onRegisterSuccess, onSwitchToLogin }) {
   const [nom, setNom] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -15,7 +22,10 @@ function Register({ onRegister, onSwitchToLogin }) {
     e.preventDefault();
     setErreur("");
 
-    if (!nom || !email || !password) {
+    const trimmedNom = nom.trim();
+    const trimmedEmail = email.trim();
+
+    if (!trimmedNom || !trimmedEmail || !password) {
       setErreur("Veuillez remplir tous les champs.");
       return;
     }
@@ -23,13 +33,15 @@ function Register({ onRegister, onSwitchToLogin }) {
     setLoading(true);
     try {
       const response = await api.post("/register", {
-        name: nom,
-        email,
+        nom: trimmedNom,
+        name: trimmedNom,
+        email: trimmedEmail,
         password,
         password_confirmation: password,
       });
 
-      onRegister(response.data);
+      const callback = onRegister || onRegisterSuccess;
+      callback?.(response.data);
     } catch (error) {
       const firstValidationError = error.response?.data?.errors
         ? Object.values(error.response.data.errors).flat()[0]
@@ -59,7 +71,7 @@ function Register({ onRegister, onSwitchToLogin }) {
             type="text"
             placeholder="Ex : Mohamed Alami"
             value={nom}
-            onChange={(e) => setNom(e.target.value)}
+            onChange={(val) => setNom(extractValue(val))}
           />
 
           <Input
@@ -67,7 +79,7 @@ function Register({ onRegister, onSwitchToLogin }) {
             type="email"
             placeholder="votre@email.com"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(val) => setEmail(extractValue(val))}
           />
 
           <Input
@@ -75,14 +87,26 @@ function Register({ onRegister, onSwitchToLogin }) {
             type="password"
             placeholder="********"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(val) => setPassword(extractValue(val))}
           />
 
-          <div style={{ marginTop: "15px", display: "flex", flexDirection: "column", gap: "10px" }}>
+          <div
+            style={{
+              marginTop: "15px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "10px",
+            }}
+          >
             <Button type="submit" disabled={loading}>
               {loading ? "Inscription..." : "S'inscrire"}
             </Button>
-            <Button type="button" variant="secondary" onClick={onSwitchToLogin} disabled={loading}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onSwitchToLogin}
+              disabled={loading}
+            >
               Déjà un compte ? Se connecter
             </Button>
           </div>

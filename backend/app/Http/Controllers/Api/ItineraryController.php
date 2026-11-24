@@ -15,7 +15,16 @@ class ItineraryController extends Controller
 
     public function index(Request $request)
     {
-        $itineraries = $this->itineraryService->listForUser($request->user()?->id);
+        $validatedDates = $request->validate([
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date',
+        ]);
+
+        $itineraries = $this->itineraryService->listForUser(
+            $request->user()?->id,
+            $validatedDates['start_date'] ?? null,
+            $validatedDates['end_date'] ?? null
+        );
 
         return response()->json($itineraries, 200);
     }
@@ -48,6 +57,13 @@ class ItineraryController extends Controller
         $details = $this->itineraryService->getDetails($itinerary);
 
         return response()->json($details, 200);
+    }
+
+    public function summary(Itinerary $itinerary)
+    {
+        $summary = $this->itineraryService->getSummary($itinerary);
+
+        return response()->json($summary, 200);
     }
 
     public function update(Request $request, Itinerary $itinerary)

@@ -5,18 +5,27 @@ namespace App\Services;
 use App\Models\User;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 
 class AuthService
 {
     public function register(array $data): array
     {
-        $user = User::create([
-            'nom' => $data['nom'],
+        $userAttributes = [
             'email' => $data['email'],
             'password' => Hash::make($data['password']),
-        ]);
+        ];
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+        if (Schema::hasColumn('users', 'nom')) {
+            $userAttributes['nom'] = $data['nom'];
+        }
+
+        if (Schema::hasColumn('users', 'name')) {
+            $userAttributes['name'] = $data['nom'] ?? ($data['name'] ?? '');
+        }
+
+        $user = User::create($userAttributes);
+        $token = $user->createToken('api-token')->plainTextToken;
 
         return [
             'user' => $user,
@@ -32,7 +41,7 @@ class AuthService
             throw new AuthenticationException('Identifiants incorrects.');
         }
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+        $token = $user->createToken('api-token')->plainTextToken;
 
         return [
             'user' => $user,

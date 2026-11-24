@@ -1,18 +1,24 @@
 function Input({
   label,
+  id,
   type = "text",
-  placeholder,
   value,
   onChange,
+  placeholder,
+  ...props
 }) {
+  const inputId = id || label?.toLowerCase().replace(/\s+/g, "-");
+
   return (
-    <div className="input-group">
-      <label>{label}</label>
+    <div className="form-group">
+      {label && <label htmlFor={inputId}>{label}</label>}
       <input
+        id={inputId}
         type={type}
-        placeholder={placeholder}
         value={value ?? ""}
         onChange={onChange}
+        placeholder={placeholder}
+        {...props}
       />
     </div>
   );
