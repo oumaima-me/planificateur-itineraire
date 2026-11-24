@@ -6,23 +6,39 @@ import {
   Pencil,
   RefreshCw,
   ArrowLeft,
-  Route,
+  CheckCircle2,
 } from "lucide-react";
 import api from "../api/axios";
 
-function ItineraryDetails({ itineraire, onModifierItineraire, onRetour, onVoirResume }) {
+function formatDateDDMMYYYY(value, fallback = "—") {
+  if (!value) return fallback;
+  const raw = String(value).trim();
+  const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+  const slashMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (slashMatch) return raw;
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return fallback;
+  return `${String(parsed.getDate()).padStart(2, "0")}/${String(parsed.getMonth() + 1).padStart(2, "0")}/${parsed.getFullYear()}`;
+}
+
+function ItineraryDetails({
+  itineraire,
+  isPlanningCompleted = false,
+  onModifierItineraire,
+  onRetour,
+  onTerminerPlanning,
+}) {
   const [details, setDetails] = useState(itineraire);
   const [loading, setLoading] = useState(false);
   const [erreur, setErreur] = useState("");
   const [modeEdition, setModeEdition] = useState(true);
 
-  // Formulaire ajout d'étape
   const [stepNom, setStepNom] = useState("");
   const [stepNotes, setStepNotes] = useState("");
   const [stepDate, setStepDate] = useState("");
   const [stepObligatoire, setStepObligatoire] = useState(false);
 
-  // Formulaires par étape : { [stepId]: {...} }
   const [activityForms, setActivityForms] = useState({});
   const [hebergementForms, setHebergementForms] = useState({});
 
@@ -32,8 +48,9 @@ function ItineraryDetails({ itineraire, onModifierItineraire, onRetour, onVoirRe
     setErreur("");
     try {
       const response = await api.get(`/itineraries/${itineraire.id}`);
-      setDetails(response.data);
-      onModifierItineraire?.(response.data);
+      const updated = response.data?.data || response.data;
+      setDetails(updated);
+      onModifierItineraire?.(updated);
     } catch (error) {
       console.error("Erreur chargement détails :", error);
       setErreur("Impossible de charger les détails de l'itinéraire.");
@@ -57,7 +74,7 @@ function ItineraryDetails({ itineraire, onModifierItineraire, onRetour, onVoirRe
           <p>Aucun itinéraire sélectionné.</p>
           {onRetour && (
             <button type="button" className="button-secondary" onClick={onRetour}>
-              <ArrowLeft size={16} /> Retour
+              <ArrowLeft size={16} /> Retour à Mes itinéraires
             </button>
           )}
         </div>
@@ -81,7 +98,6 @@ function ItineraryDetails({ itineraire, onModifierItineraire, onRetour, onVoirRe
     return (Number(h.prix_par_nuit) || 0) * (Number(h.nombre_nuits) || 0);
   }
 
-  /* ---------- Étapes ---------- */
   async function handleAddStep(e) {
     e.preventDefault();
     if (!stepNom.trim()) return;
@@ -134,7 +150,6 @@ function ItineraryDetails({ itineraire, onModifierItineraire, onRetour, onVoirRe
     }
   }
 
-  /* ---------- Activités ---------- */
   function getActivityForm(stepId) {
     return activityForms[stepId] || { nom: "", cout: "0", est_obligatoire: false };
   }
@@ -195,7 +210,6 @@ function ItineraryDetails({ itineraire, onModifierItineraire, onRetour, onVoirRe
     }
   }
 
-  /* ---------- Hébergements ---------- */
   function getHebergementForm(stepId) {
     return hebergementForms[stepId] || { nom: "", prix_par_nuit: "", nombre_nuits: "1" };
   }
@@ -238,7 +252,6 @@ function ItineraryDetails({ itineraire, onModifierItineraire, onRetour, onVoirRe
     }
   }
 
-  /* ---------- Totaux ---------- */
   const totalActivitiesCost = steps.reduce((sum, step) => {
     const acts = getActivities(step);
     return sum + acts.reduce((aSum, act) => aSum + (Number(act.cout) || 0), 0);
@@ -254,19 +267,34 @@ function ItineraryDetails({ itineraire, onModifierItineraire, onRetour, onVoirRe
   const totalDepenses = totalActivitiesCost + totalHebergementCost;
   const reste = budget - totalDepenses;
 
+  const formattedStart = formatDateDDMMYYYY(
+    details.date_debut || details.dateDebut,
+    "—"
+  );
+  const formattedEnd = formatDateDDMMYYYY(
+    details.date_fin || details.dateFin,
+    "—"
+  );
+
   return (
     <div className="details-page">
       <div className="details-header">
-        <h2>{details.titre}</h2>
+        <div className="details-title-row">
+          <h2>{details.titre}</h2>
+          {isPlanningCompleted && (
+            <span className="badge-termine">
+              <CheckCircle2 size={13} /> Planning terminé
+            </span>
+          )}
+        </div>
         <p>
-          Destination : <strong>{details.destination}</strong> | Dates :{" "}
-          {details.date_debut || details.dateDebut || "—"} →{" "}
-          {details.date_fin || details.dateFin || "—"}
+          Destination : <strong>{details.destination}</strong> · Dates :{" "}
+          {formattedStart} → {formattedEnd}
         </p>
         <p>
-          Budget : <strong>{budget.toFixed(2)} DH</strong> | Activités :{" "}
-          <strong>{totalActivitiesCost.toFixed(2)} DH</strong> | Hébergements :{" "}
-          <strong>{totalHebergementCost.toFixed(2)} DH</strong> | Reste :{" "}
+          Budget : <strong>{budget.toFixed(2)} DH</strong> · Activités :{" "}
+          <strong>{totalActivitiesCost.toFixed(2)} DH</strong> · Hébergements :{" "}
+          <strong>{totalHebergementCost.toFixed(2)} DH</strong> · Reste :{" "}
           <strong>{reste.toFixed(2)} DH</strong>
         </p>
         {details.description && <p>{details.description}</p>}
@@ -295,13 +323,13 @@ function ItineraryDetails({ itineraire, onModifierItineraire, onRetour, onVoirRe
           <button type="button" onClick={refreshDetails} disabled={loading}>
             <RefreshCw size={15} /> {loading ? "Actualisation..." : "Actualiser"}
           </button>
-          {onVoirResume && (
+          {onTerminerPlanning && (
             <button
               type="button"
               className="button-primary"
-              onClick={() => onVoirResume(details)}
+              onClick={() => onTerminerPlanning(details)}
             >
-              <Route size={16} /> Terminer le planning & Résumé
+              <CheckCircle2 size={16} /> Terminer le planning
             </button>
           )}
         </div>
@@ -312,10 +340,13 @@ function ItineraryDetails({ itineraire, onModifierItineraire, onRetour, onVoirRe
       {modeEdition && (
         <section className="add-step-section">
           <h3>Ajouter une étape</h3>
+          <small className="field-helper">
+            Une étape est une ville, un lieu d'arrêt ou un jour de parcours (ex. : Ouarzazate ou Jour 2 - Vallée du Dadès).
+          </small>
           <form onSubmit={handleAddStep} className="step-form">
             <input
               type="text"
-              placeholder="Nom de l'étape"
+              placeholder="Étape (ville, lieu d'arrêt ou jour)"
               value={stepNom}
               onChange={(e) => setStepNom(e.target.value)}
             />
@@ -369,7 +400,10 @@ function ItineraryDetails({ itineraire, onModifierItineraire, onRetour, onVoirRe
                       {index + 1}. {step.nom}
                     </strong>
                     {step.date_etape && (
-                      <span className="step-date"> — {step.date_etape}</span>
+                      <span className="step-date">
+                        {" "}
+                        — {formatDateDDMMYYYY(step.date_etape)}
+                      </span>
                     )}
                     <span
                       className={isObligatoire ? "badge-obligatoire" : "badge-facultatif"}
@@ -400,7 +434,6 @@ function ItineraryDetails({ itineraire, onModifierItineraire, onRetour, onVoirRe
 
                 {step.notes && <p className="step-notes">{step.notes}</p>}
 
-                {/* ---------- Activités ---------- */}
                 <div className="activities-block">
                   <h4>
                     <MapPinned size={16} /> Activités ({activities.length})
@@ -408,6 +441,9 @@ function ItineraryDetails({ itineraire, onModifierItineraire, onRetour, onVoirRe
                       <small> — {coutActivitesEtape.toFixed(2)} DH</small>
                     )}
                   </h4>
+                  <small className="field-helper">
+                    Une activité est ce que vous faites sur place : visite, musée, balade, repas ou excursion.
+                  </small>
                   {activities.length === 0 ? (
                     <p className="empty-hint">Aucune activité dans cette étape.</p>
                   ) : (
@@ -459,7 +495,7 @@ function ItineraryDetails({ itineraire, onModifierItineraire, onRetour, onVoirRe
                     >
                       <input
                         type="text"
-                        placeholder="Nouvelle activité"
+                        placeholder="Activité (ex. : visite, déjeuner, randonnée)"
                         value={actForm.nom}
                         onChange={(e) =>
                           updateActivityForm(step.id, { nom: e.target.value })
@@ -492,7 +528,6 @@ function ItineraryDetails({ itineraire, onModifierItineraire, onRetour, onVoirRe
                   )}
                 </div>
 
-                {/* ---------- Hébergement ---------- */}
                 <div className="hebergement-block">
                   <h4>
                     <BedDouble size={16} /> Hébergement ({hebergements.length})

@@ -4,8 +4,21 @@ import ItineraryDateFilter, {
   filterItinerariesByDate,
 } from "../components/ItineraryDateFilter";
 
+function formatDateDDMMYYYY(value, fallback = "—") {
+  if (!value) return fallback;
+  const raw = String(value).trim();
+  const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+  const slashMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (slashMatch) return raw;
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return fallback;
+  return `${String(parsed.getDate()).padStart(2, "0")}/${String(parsed.getMonth() + 1).padStart(2, "0")}/${parsed.getFullYear()}`;
+}
+
 function MyItineraries({
   itineraires = [],
+  completedItineraryIds = [],
   onNouvelItineraire,
   onVoirDetails,
   onModifier,
@@ -22,15 +35,12 @@ function MyItineraries({
   const hasActiveFilter = Boolean(startDate || endDate);
 
   return (
-    <div className="page-container">
+    <div className="page-container my-itineraries">
       <div className="page-header">
         <div>
           <h2>Mes itinéraires</h2>
-          <p>Consultez, filtrez et gérez tous vos voyages planifiés</p>
+          <p>Sélectionnez un itinéraire pour ouvrir ses détails et son résumé</p>
         </div>
-        <button type="button" className="button-primary" onClick={onNouvelItineraire}>
-          <Plus size={16} /> Nouvel itinéraire
-        </button>
       </div>
 
       <ItineraryDateFilter
@@ -72,17 +82,21 @@ function MyItineraries({
         <div className="itineraries-grid">
           {itinerairesFiltres.map((item) => {
             const budget = Number(item.budget ?? item.budgetTotal ?? 0);
-            const dateDebut = item.date_debut || item.dateDebut || "—";
-            const dateFin = item.date_fin || item.dateFin || "—";
+            const dateDebut = formatDateDDMMYYYY(item.date_debut || item.dateDebut, "—");
+            const dateFin = formatDateDDMMYYYY(item.date_fin || item.dateFin, "—");
             const stepsCount = (item.steps || item.etapes || []).length;
+            const isCompleted = completedItineraryIds.includes(Number(item.id));
 
             return (
               <div key={item.id} className="itinerary-card">
                 <div className="itinerary-card-header">
                   <h3>{item.titre}</h3>
-                  <span className="steps-pill">
-                    {stepsCount} étape{stepsCount > 1 ? "s" : ""}
-                  </span>
+                  <div className="badge-group">
+                    {isCompleted && <span className="badge-termine">Terminé</span>}
+                    <span className="steps-pill">
+                      {stepsCount} étape{stepsCount > 1 ? "s" : ""}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="itinerary-card-meta">
@@ -107,7 +121,7 @@ function MyItineraries({
                     className="button-primary"
                     onClick={() => onVoirDetails?.(item)}
                   >
-                    <Eye size={15} /> Détails
+                    <Eye size={15} /> Ouvrir les détails
                   </button>
                   <button
                     type="button"

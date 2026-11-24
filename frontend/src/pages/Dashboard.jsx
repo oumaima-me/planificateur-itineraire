@@ -9,8 +9,21 @@ function getRefDate(itinerary) {
   return raw ? String(raw).slice(0, 10) : null;
 }
 
+function formatDateDDMMYYYY(value, fallback = "Non définie") {
+  if (!value) return fallback;
+  const raw = String(value).trim();
+  const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+  const slashMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (slashMatch) return raw;
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return fallback;
+  return `${String(parsed.getDate()).padStart(2, "0")}/${String(parsed.getMonth() + 1).padStart(2, "0")}/${parsed.getFullYear()}`;
+}
+
 function Dashboard({
   itineraires = [],
+  completedItineraryIds = [],
   utilisateur,
   onNavigate,
   onNouvelItineraire,
@@ -61,7 +74,6 @@ function Dashboard({
       }
     }
 
-    // Futurs : plus proches en premier ; sans date à la fin des futurs
     upcoming.sort((a, b) => {
       const da = getRefDate(a);
       const db = getRefDate(b);
@@ -71,7 +83,6 @@ function Dashboard({
       return da.localeCompare(db);
     });
 
-    // Passés : plus récents en premier
     past.sort((a, b) => {
       const da = getRefDate(a) || "";
       const db = getRefDate(b) || "";
@@ -90,10 +101,14 @@ function Dashboard({
   function renderItineraryCard(item) {
     const refDate = getRefDate(item);
     const isPast = Boolean(refDate && refDate < today);
+    const isCompleted = completedItineraryIds.includes(Number(item.id));
     const steps = item.steps || item.etapes || [];
     const obligatoireStepsCount = steps.filter((s) =>
       Boolean(s.estObligatoire ?? s.est_obligatoire)
     ).length;
+
+    const rawStart = item.dateDebut || item.date_debut;
+    const rawEnd = item.dateFin || item.date_fin;
 
     return (
       <div key={item.id} className="itinerary-card">
@@ -102,18 +117,21 @@ function Dashboard({
             <h3>{item.titre}</h3>
             <p className="itinerary-destination">{item.destination}</p>
           </div>
-          <span className={isPast ? "badge-passe" : "badge-futur"}>
-            {isPast ? "Passé" : "À venir"}
-          </span>
+          <div className="badge-group">
+            {isCompleted && <span className="badge-termine">Planning terminé</span>}
+            <span className={isPast ? "badge-passe" : "badge-futur"}>
+              {isPast ? "Passé" : "À venir"}
+            </span>
+          </div>
         </div>
 
         <p className="itinerary-dates">
-          Dates : {item.dateDebut || item.date_debut || "Non définie"} →{" "}
-          {item.dateFin || item.date_fin || "Non définie"}
+          Dates : {formatDateDDMMYYYY(rawStart, "Non définie")} →{" "}
+          {formatDateDDMMYYYY(rawEnd, "Non définie")}
         </p>
 
         <p className="itinerary-meta">
-          Budget : {Number(item.budgetTotal ?? item.budget ?? 0).toFixed(2)} DH | Étapes :{" "}
+          Budget : {Number(item.budgetTotal ?? item.budget ?? 0).toFixed(2)} DH · Étapes :{" "}
           {steps.length} ({obligatoireStepsCount} obligatoire(s))
         </p>
 
@@ -140,12 +158,11 @@ function Dashboard({
     <div className="dashboard-page">
       <section className="dashboard-header">
         <div>
-          <h2>Tableau de bord</h2>
-          <p>Bienvenue, {utilisateur?.nom || utilisateur?.name}</p>
+          <h2>Bonjour, {utilisateur?.nom || utilisateur?.name}</h2>
+          <p>
+            Ouvrez un itinéraire pour gérer ses étapes et consulter son résumé & timeline.
+          </p>
         </div>
-        <button type="button" onClick={handleOpenCreate}>
-          + Nouvel itinéraire
-        </button>
       </section>
 
       <section className="dashboard-stats">

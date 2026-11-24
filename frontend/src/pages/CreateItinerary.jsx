@@ -11,6 +11,32 @@ function extractValue(eventOrValue) {
   return eventOrValue?.target?.value ?? "";
 }
 
+function formatDateDDMMYYYY(value, fallback = "—") {
+  if (!value) return fallback;
+  const raw = String(value).trim();
+  const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+  const slashMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (slashMatch) return raw;
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return fallback;
+  return `${String(parsed.getDate()).padStart(2, "0")}/${String(parsed.getMonth() + 1).padStart(2, "0")}/${parsed.getFullYear()}`;
+}
+
+function buildDefaultTitle(destinationText, dateDebut, dateFin) {
+  const cleanDest = destinationText.trim();
+  if (!cleanDest) return "Nouvel itinéraire";
+  const startLabel = dateDebut ? formatDateDDMMYYYY(dateDebut) : "";
+  const endLabel = dateFin ? formatDateDDMMYYYY(dateFin) : "";
+  if (startLabel && endLabel) {
+    return `${cleanDest} (${startLabel} → ${endLabel})`;
+  }
+  if (startLabel) {
+    return `${cleanDest} (dès ${startLabel})`;
+  }
+  return `Voyage : ${cleanDest}`;
+}
+
 function CreateItinerary({
   itineraireAEditer = null,
   onSave,
@@ -61,8 +87,10 @@ function CreateItinerary({
     e.preventDefault();
     setErreur("");
 
-    if (!titre.trim() || !destination.trim()) {
-      setErreur("Veuillez renseigner au moins le titre et la destination.");
+    if (!destination.trim()) {
+      setErreur(
+        "Veuillez renseigner la destination ou le trajet (ex. : Sud ou Hiver 2026)."
+      );
       return;
     }
 
@@ -71,8 +99,11 @@ function CreateItinerary({
       return;
     }
 
+    const finalTitle =
+      titre.trim() || buildDefaultTitle(destination, dateDebut, dateFin);
+
     const payload = {
-      titre: titre.trim(),
+      titre: finalTitle,
       destination: destination.trim(),
       date_debut: dateDebut || null,
       date_fin: dateFin || null,
@@ -105,7 +136,7 @@ function CreateItinerary({
   }
 
   return (
-    <div className="page-container" style={{ maxWidth: "650px", margin: "0 auto" }}>
+    <div className="page-container create-itinerary">
       <div className="page-header">
         <div>
           <h2>
@@ -114,36 +145,32 @@ function CreateItinerary({
           <p>
             {itineraireAEditer?.id
               ? "Mettez à jour les informations de votre voyage"
-              : "Créez votre voyage : une étape et une activité par défaut seront ajoutées automatiquement"}
+              : "Saisissez une destination ou un trajet (ex. : Agadir → Marrakech). Le titre est généré automatiquement s'il est laissé vide."}
           </p>
         </div>
       </div>
 
-      {erreur && (
-        <p className="error-message" style={{ color: "#dc2626", marginBottom: "1rem" }}>
-          {erreur}
-        </p>
-      )}
+      {erreur && <p className="error-message">{erreur}</p>}
 
       <Card>
         <form onSubmit={handleSubmit} className="itinerary-form">
           <Input
-            label="Titre de l'itinéraire"
+            label="Destination ou trajet *"
             type="text"
-            placeholder="Ex : Road trip dans le Sud"
-            value={titre}
-            onChange={(val) => setTitre(extractValue(val))}
-          />
-
-          <Input
-            label="Destination"
-            type="text"
-            placeholder="Ex : Agadir / Taroudant"
+            placeholder="Ex : Chefchaouen ou Agadir → Marrakech"
             value={destination}
             onChange={(val) => setDestination(extractValue(val))}
           />
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+          <Input
+            label="Titre de l'itinéraire (optionnel)"
+            type="text"
+            placeholder="Ex : Escapade Sud (auto-généré si vide)"
+            value={titre}
+            onChange={(val) => setTitre(extractValue(val))}
+          />
+
+          <div className="form-grid-2">
             <Input
               label="Date de début"
               type="date"
@@ -170,7 +197,7 @@ function CreateItinerary({
             onChange={(val) => setBudget(extractValue(val))}
           />
 
-          <div className="form-group">
+          <div className="input-group">
             <label htmlFor="itinerary-description">Description (optionnel)</label>
             <textarea
               id="itinerary-description"
@@ -181,14 +208,7 @@ function CreateItinerary({
             />
           </div>
 
-          <div
-            style={{
-              marginTop: "1.25rem",
-              display: "flex",
-              gap: "0.75rem",
-              justifyContent: "flex-end",
-            }}
-          >
+          <div className="form-actions-end">
             {handleCancel && (
               <Button
                 type="button"

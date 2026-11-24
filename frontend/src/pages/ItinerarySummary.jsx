@@ -13,7 +13,25 @@ import {
   Pencil,
 } from "lucide-react";
 
-function ItinerarySummary({ itineraire, onRetour, onModifier }) {
+function formatDateDDMMYYYY(value, fallback = "—") {
+  if (!value) return fallback;
+  const raw = String(value).trim();
+  const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+  const slashMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (slashMatch) return raw;
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return fallback;
+  return `${String(parsed.getDate()).padStart(2, "0")}/${String(parsed.getMonth() + 1).padStart(2, "0")}/${parsed.getFullYear()}`;
+}
+
+function ItinerarySummary({
+  itineraire,
+  isPlanningCompleted = false,
+  onRetour,
+  onRetourListe,
+  onModifier,
+}) {
   const financialSummary = useMemo(() => {
     const initialBudget = Number(itineraire?.budget ?? itineraire?.budgetTotal ?? 0);
     const rawSteps = [...(itineraire?.steps || itineraire?.etapes || [])].sort(
@@ -68,10 +86,12 @@ function ItinerarySummary({ itineraire, onRetour, onModifier }) {
     return (
       <div className="summary-page">
         <div className="card">
-          <p>Aucun itinéraire sélectionné pour le résumé.</p>
-          {onRetour && (
-            <button type="button" className="button-secondary" onClick={onRetour}>
-              <ArrowLeft size={16} /> Retour
+          <p>
+            Ouvrez d'abord les détails d'un itinéraire puis cliquez sur « Terminer le planning » pour consulter son résumé et sa timeline.
+          </p>
+          {onRetourListe && (
+            <button type="button" className="button-secondary" onClick={onRetourListe}>
+              <ArrowLeft size={16} /> Aller à Mes itinéraires
             </button>
           )}
         </div>
@@ -81,11 +101,19 @@ function ItinerarySummary({ itineraire, onRetour, onModifier }) {
 
   const { initialBudget, totalSpent, finalRemaining, steps } = financialSummary;
   const isOverBudget = finalRemaining < 0;
+  const formattedStart = formatDateDDMMYYYY(
+    itineraire.date_debut || itineraire.dateDebut,
+    "—"
+  );
+  const formattedEnd = formatDateDDMMYYYY(
+    itineraire.date_fin || itineraire.dateFin,
+    "Non définie"
+  );
 
   return (
     <div className="summary-page">
       <div className="summary-topbar">
-        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+        <div className="summary-topbar-actions">
           {onRetour && (
             <button type="button" className="button-secondary" onClick={onRetour}>
               <ArrowLeft size={16} /> Retour aux détails
@@ -101,10 +129,16 @@ function ItinerarySummary({ itineraire, onRetour, onModifier }) {
             </button>
           )}
         </div>
-        <span className="summary-badge">Feuille de route & Bilan financier</span>
+        <div className="badge-group">
+          {isPlanningCompleted && (
+            <span className="badge-termine">
+              <CheckCircle2 size={13} /> Planning terminé
+            </span>
+          )}
+          <span className="summary-badge">Résumé & Timeline</span>
+        </div>
       </div>
 
-      {/* Bloc Départ : Titre & Budget Initial */}
       <header className="summary-hero-card">
         <div className="summary-hero-info">
           <h1>{itineraire.titre}</h1>
@@ -113,9 +147,7 @@ function ItinerarySummary({ itineraire, onRetour, onModifier }) {
               <MapPin size={16} /> {itineraire.destination}
             </span>
             <span>
-              <Calendar size={16} />{" "}
-              {itineraire.date_debut || itineraire.dateDebut || "—"} →{" "}
-              {itineraire.date_fin || itineraire.dateFin || "Non définie"}
+              <Calendar size={16} /> {formattedStart} → {formattedEnd}
             </span>
           </div>
         </div>
@@ -128,7 +160,6 @@ function ItinerarySummary({ itineraire, onRetour, onModifier }) {
         </div>
       </header>
 
-      {/* Long trait vertical étape par étape */}
       <section className="timeline-wrapper">
         <div className="timeline-endpoint start-point">
           <div className="endpoint-dot">
@@ -174,7 +205,9 @@ function ItinerarySummary({ itineraire, onRetour, onModifier }) {
                       </span>
                       <h3>{step.nom}</h3>
                       {step.date_etape && (
-                        <small className="step-date">Date : {step.date_etape}</small>
+                        <small className="step-date">
+                          Date : {formatDateDDMMYYYY(step.date_etape)}
+                        </small>
                       )}
                     </div>
 
@@ -262,7 +295,6 @@ function ItinerarySummary({ itineraire, onRetour, onModifier }) {
         </div>
       </section>
 
-      {/* Bilan Financier Final */}
       <footer
         className={`summary-final-card ${
           isOverBudget ? "over-budget" : "within-budget"
