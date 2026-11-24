@@ -13,15 +13,20 @@ class ItineraryController extends Controller
     {
     }
 
+    private function authorizeOwner(Request $request, Itinerary $itinerary): void
+    {
+        abort_unless((int) $itinerary->user_id === (int) $request->user()->id, 403, 'Accès interdit à cet itinéraire.');
+    }
+
     public function index(Request $request)
     {
         $validatedDates = $request->validate([
             'start_date' => 'nullable|date',
-            'end_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
         ]);
 
         $itineraries = $this->itineraryService->listForUser(
-            $request->user()?->id,
+            (int) $request->user()->id,
             $validatedDates['start_date'] ?? null,
             $validatedDates['end_date'] ?? null
         );
@@ -32,35 +37,32 @@ class ItineraryController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'user_id' => 'nullable|exists:users,id',
             'titre' => 'required|string|max:255',
-            'description' => 'nullable|string',
+            'description' => 'nullable|string|max:2000',
             'destination' => 'required|string|max:255',
             'date_debut' => 'nullable|date',
-            'date_fin' => 'nullable|date',
-            'budget' => 'nullable|numeric',
+            'date_fin' => 'nullable|date|after_or_equal:date_debut',
+            'budget' => 'nullable|numeric|min:0',
         ]);
 
-        $userId = $request->user()?->id ?? $validated['user_id'] ?? null;
-
-        if (! $userId) {
-            return response()->json(['message' => 'Utilisateur requis.'], 422);
-        }
-
-        $itinerary = $this->itineraryService->createWithDefaults($validated, (int) $userId);
+        $itinerary = $this->itineraryService->createWithDefaults($validated, (int) $request->user()->id);
 
         return response()->json($itinerary, 201);
     }
 
-    public function show(Itinerary $itinerary)
+    public function show(Request $request, Itinerary $itinerary)
     {
+        $this->authorizeOwner($request, $itinerary);
+
         $details = $this->itineraryService->getDetails($itinerary);
 
         return response()->json($details, 200);
     }
 
-    public function summary(Itinerary $itinerary)
+    public function summary(Request $request, Itinerary $itinerary)
     {
+        $this->authorizeOwner($request, $itinerary);
+
         $summary = $this->itineraryService->getSummary($itinerary);
 
         return response()->json($summary, 200);
@@ -68,13 +70,15 @@ class ItineraryController extends Controller
 
     public function update(Request $request, Itinerary $itinerary)
     {
+        $this->authorizeOwner($request, $itinerary);
+
         $validated = $request->validate([
-            'titre' => 'sometimes|string|max:255',
-            'description' => 'nullable|string',
-            'destination' => 'sometimes|string|max:255',
+            'titre' => 'sometimes|required|string|max:255',
+            'description' => 'nullable|string|max:2000',
+            'destination' => 'sometimes|required|string|max:255',
             'date_debut' => 'nullable|date',
-            'date_fin' => 'nullable|date',
-            'budget' => 'nullable|numeric',
+            'date_fin' => 'nullable|date|after_or_equal:date_debut',
+            'budget' => 'nullable|numeric|min:0',
         ]);
 
         $updated = $this->itineraryService->updateItinerary($itinerary, $validated);
@@ -82,8 +86,10 @@ class ItineraryController extends Controller
         return response()->json($updated, 200);
     }
 
-    public function destroy(Itinerary $itinerary)
+    public function destroy(Request $request, Itinerary $itinerary)
     {
+        $this->authorizeOwner($request, $itinerary);
+
         $this->itineraryService->deleteItinerary($itinerary);
 
         return response()->json(null, 204);

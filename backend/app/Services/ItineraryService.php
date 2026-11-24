@@ -23,14 +23,11 @@ class ItineraryService
         ];
     }
 
-    public function listForUser(?int $userId, ?string $startDate = null, ?string $endDate = null): Collection
+    public function listForUser(int $userId, ?string $startDate = null, ?string $endDate = null): Collection
     {
         $today = Carbon::today()->toDateString();
-        $query = Itinerary::with($this->nestedRelations());
-
-        if ($userId) {
-            $query->where('user_id', $userId);
-        }
+        $query = Itinerary::with($this->nestedRelations())
+            ->where('user_id', $userId);
 
         if ($startDate) {
             $query->where(function ($q) use ($startDate) {
@@ -74,7 +71,6 @@ class ItineraryService
         $data['user_id'] = $userId;
         $itinerary = Itinerary::create($data);
 
-        // Règle métier : étape obligatoire par défaut
         $defaultStep = $itinerary->steps()->create([
             'nom' => 'Étape obligatoire : ' . $itinerary->destination,
             'notes' => 'Étape par défaut obligatoire',
@@ -83,7 +79,6 @@ class ItineraryService
             'est_obligatoire' => true,
         ]);
 
-        // Règle métier : activité par défaut liée à l'étape
         $defaultStep->activities()->create([
             'nom' => 'Arrivée et installation',
             'notes' => 'Activité par défaut',
@@ -150,6 +145,7 @@ class ItineraryService
 
     public function updateItinerary(Itinerary $itinerary, array $data): Itinerary
     {
+        unset($data['user_id']);
         $itinerary->update($data);
 
         return $itinerary->load($this->nestedRelations());

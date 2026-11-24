@@ -13,12 +13,13 @@ Route::post('/login', [AuthController::class, 'login']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {
-        return $request->user();
+        return response()->json($request->user(), 200);
     });
     Route::post('/logout', [AuthController::class, 'logout']);
 
-    Route::apiResource('accommodations', AccommodationController::class);
+    Route::get('itineraries/{itinerary}/summary', [ItineraryController::class, 'summary']);
     Route::apiResource('itineraries', ItineraryController::class);
-    Route::apiResource('steps', StepController::class);
-    Route::apiResource('activities', ActivityController::class);
+    Route::apiResource('steps', StepController::class)->only(['store', 'update', 'destroy']);
+    Route::apiResource('activities', ActivityController::class)->only(['store', 'update', 'destroy']);
+    Route::apiResource('accommodations', AccommodationController::class)->only(['store', 'update', 'destroy']);
 });
