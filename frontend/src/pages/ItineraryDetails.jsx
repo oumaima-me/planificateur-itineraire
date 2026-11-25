@@ -22,6 +22,16 @@ function formatDateDDMMYYYY(value, fallback = "—") {
   return `${String(parsed.getDate()).padStart(2, "0")}/${String(parsed.getMonth() + 1).padStart(2, "0")}/${parsed.getFullYear()}`;
 }
 
+function toDateInputValue(value) {
+  if (!value) return "";
+  const raw = String(value).trim();
+  const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return parsed.toISOString().slice(0, 10);
+}
+
 function ItineraryDetails({
   itineraire,
   isPlanningCompleted = false,
@@ -34,13 +44,41 @@ function ItineraryDetails({
   const [erreur, setErreur] = useState("");
   const [modeEdition, setModeEdition] = useState(true);
 
+  // Formulaire ajout étape
   const [stepNom, setStepNom] = useState("");
   const [stepNotes, setStepNotes] = useState("");
   const [stepDate, setStepDate] = useState("");
   const [stepObligatoire, setStepObligatoire] = useState(false);
 
+  // Édition étape
+  const [editingStepId, setEditingStepId] = useState(null);
+  const [editingStepForm, setEditingStepForm] = useState({
+    nom: "",
+    date_etape: "",
+    notes: "",
+    est_obligatoire: false,
+  });
+
+  // Formulaires ajout activité / hébergement par stepId
   const [activityForms, setActivityForms] = useState({});
   const [hebergementForms, setHebergementForms] = useState({});
+
+  // Édition activité
+  const [editingActivityId, setEditingActivityId] = useState(null);
+  const [editingActivityForm, setEditingActivityForm] = useState({
+    nom: "",
+    cout: "0",
+    notes: "",
+    est_obligatoire: false,
+  });
+
+  // Édition hébergement
+  const [editingHebergementId, setEditingHebergementId] = useState(null);
+  const [editingHebergementForm, setEditingHebergementForm] = useState({
+    nom: "",
+    prix_par_nuit: "0",
+    nombre_nuits: "1",
+  });
 
   const refreshDetails = useCallback(async () => {
     if (!itineraire?.id) return;
@@ -61,6 +99,9 @@ function ItineraryDetails({
 
   useEffect(() => {
     setDetails(itineraire);
+    setEditingStepId(null);
+    setEditingActivityId(null);
+    setEditingHebergementId(null);
     if (itineraire?.id) {
       refreshDetails();
     }
@@ -98,6 +139,7 @@ function ItineraryDetails({
     return (Number(h.prix_par_nuit) || 0) * (Number(h.nombre_nuits) || 0);
   }
 
+  // --- ÉTAPES ---
   async function handleAddStep(e) {
     e.preventDefault();
     if (!stepNom.trim()) return;
@@ -123,6 +165,41 @@ function ItineraryDetails({
     }
   }
 
+  function startEditingStep(step) {
+    setEditingStepId(step.id);
+    setEditingStepForm({
+      nom: step.nom || "",
+      date_etape: toDateInputValue(step.date_etape || step.dateEtape),
+      notes: step.notes || "",
+      est_obligatoire: Boolean(step.est_obligatoire ?? step.estObligatoire),
+    });
+    setErreur("");
+  }
+
+  async function handleSaveStep(e, stepId) {
+    e.preventDefault();
+    if (!editingStepForm.nom.trim()) {
+      setErreur("Le nom de l'étape est obligatoire.");
+      return;
+    }
+
+    setErreur("");
+    try {
+      await api.put(`/steps/${stepId}`, {
+        nom: editingStepForm.nom.trim(),
+        date_etape: editingStepForm.date_etape || null,
+        notes: editingStepForm.notes.trim() || null,
+        est_obligatoire: Boolean(editingStepForm.est_obligatoire),
+      });
+      setEditingStepId(null);
+      await refreshDetails();
+    } catch (error) {
+      setErreur(
+        error.response?.data?.message || "Erreur lors de la modification de l'étape."
+      );
+    }
+  }
+
   async function handleToggleStepObligatoire(step) {
     setErreur("");
     try {
@@ -144,12 +221,14 @@ function ItineraryDetails({
     setErreur("");
     try {
       await api.delete(`/steps/${step.id}`);
+      if (editingStepId === step.id) setEditingStepId(null);
       await refreshDetails();
     } catch (error) {
       setErreur(error.response?.data?.message || "Erreur lors de la suppression de l'étape.");
     }
   }
 
+  // --- ACTIVITÉS ---
   function getActivityForm(stepId) {
     return activityForms[stepId] || { nom: "", cout: "0", est_obligatoire: false };
   }
@@ -183,6 +262,44 @@ function ItineraryDetails({
     }
   }
 
+  function startEditingActivity(activity) {
+    setEditingActivityId(activity.id);
+    setEditingActivityForm({
+      nom: activity.nom || "",
+      cout:
+        activity.cout !== undefined && activity.cout !== null
+          ? String(activity.cout)
+          : "0",
+      notes: activity.notes || "",
+      est_obligatoire: Boolean(activity.est_obligatoire),
+    });
+    setErreur("");
+  }
+
+  async function handleSaveActivity(e, activityId) {
+    e.preventDefault();
+    if (!editingActivityForm.nom.trim()) {
+      setErreur("Le nom de l'activité est obligatoire.");
+      return;
+    }
+
+    setErreur("");
+    try {
+      await api.put(`/activities/${activityId}`, {
+        nom: editingActivityForm.nom.trim(),
+        cout: Number(editingActivityForm.cout) || 0,
+        notes: editingActivityForm.notes.trim() || null,
+        est_obligatoire: Boolean(editingActivityForm.est_obligatoire),
+      });
+      setEditingActivityId(null);
+      await refreshDetails();
+    } catch (error) {
+      setErreur(
+        error.response?.data?.message || "Erreur lors de la modification de l'activité."
+      );
+    }
+  }
+
   async function handleToggleActivityObligatoire(activity) {
     setErreur("");
     try {
@@ -204,12 +321,14 @@ function ItineraryDetails({
     setErreur("");
     try {
       await api.delete(`/activities/${activity.id}`);
+      if (editingActivityId === activity.id) setEditingActivityId(null);
       await refreshDetails();
     } catch (error) {
       setErreur(error.response?.data?.message || "Erreur lors de la suppression de l'activité.");
     }
   }
 
+  // --- HÉBERGEMENTS ---
   function getHebergementForm(stepId) {
     return hebergementForms[stepId] || { nom: "", prix_par_nuit: "", nombre_nuits: "1" };
   }
@@ -242,10 +361,51 @@ function ItineraryDetails({
     }
   }
 
+  function startEditingHebergement(hebergement) {
+    setEditingHebergementId(hebergement.id);
+    setEditingHebergementForm({
+      nom: hebergement.nom || "",
+      prix_par_nuit:
+        hebergement.prix_par_nuit !== undefined && hebergement.prix_par_nuit !== null
+          ? String(hebergement.prix_par_nuit)
+          : "0",
+      nombre_nuits:
+        hebergement.nombre_nuits !== undefined && hebergement.nombre_nuits !== null
+          ? String(hebergement.nombre_nuits)
+          : "1",
+    });
+    setErreur("");
+  }
+
+  async function handleSaveHebergement(e, hebergementId) {
+    e.preventDefault();
+    if (!editingHebergementForm.nom.trim()) {
+      setErreur("Le nom de l'hébergement est obligatoire.");
+      return;
+    }
+
+    setErreur("");
+    try {
+      await api.put(`/accommodations/${hebergementId}`, {
+        nom: editingHebergementForm.nom.trim(),
+        prix_par_nuit: Number(editingHebergementForm.prix_par_nuit) || 0,
+        nombre_nuits: Math.max(1, Number(editingHebergementForm.nombre_nuits) || 1),
+      });
+      setEditingHebergementId(null);
+      await refreshDetails();
+    } catch (error) {
+      setErreur(
+        error.response?.data?.message ||
+          "Erreur lors de la modification de l'hébergement."
+      );
+    }
+  }
+
   async function handleDeleteHebergement(hebergement) {
     setErreur("");
     try {
       await api.delete(`/accommodations/${hebergement.id}`);
+      if (editingHebergementId === hebergement.id) setEditingHebergementId(null);
       await refreshDetails();
     } catch (error) {
       setErreur(error.response?.data?.message || "Erreur lors de la suppression de l'hébergement.");
@@ -391,49 +551,120 @@ function ItineraryDetails({
               (s, a) => s + (Number(a.cout) || 0),
               0
             );
+            const isEditingStep = editingStepId === step.id;
 
             return (
               <div key={step.id} className="step-card">
-                <div className="step-header">
-                  <div>
-                    <strong>
-                      {index + 1}. {step.nom}
-                    </strong>
-                    {step.date_etape && (
-                      <span className="step-date">
-                        {" "}
-                        — {formatDateDDMMYYYY(step.date_etape)}
-                      </span>
-                    )}
-                    <span
-                      className={isObligatoire ? "badge-obligatoire" : "badge-facultatif"}
+                {isEditingStep ? (
+                  <form
+                    onSubmit={(e) => handleSaveStep(e, step.id)}
+                    className="step-form edit-inline-form"
+                  >
+                    <input
+                      type="text"
+                      placeholder="Nom de l'étape"
+                      value={editingStepForm.nom}
+                      onChange={(e) =>
+                        setEditingStepForm((prev) => ({ ...prev, nom: e.target.value }))
+                      }
+                      required
+                    />
+                    <input
+                      type="date"
+                      value={editingStepForm.date_etape}
+                      onChange={(e) =>
+                        setEditingStepForm((prev) => ({
+                          ...prev,
+                          date_etape: e.target.value,
+                        }))
+                      }
+                    />
+                    <input
+                      type="text"
+                      placeholder="Notes (optionnel)"
+                      value={editingStepForm.notes}
+                      onChange={(e) =>
+                        setEditingStepForm((prev) => ({ ...prev, notes: e.target.value }))
+                      }
+                    />
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(editingStepForm.est_obligatoire)}
+                        onChange={(e) =>
+                          setEditingStepForm((prev) => ({
+                            ...prev,
+                            est_obligatoire: e.target.checked,
+                          }))
+                        }
+                      />
+                      Obligatoire
+                    </label>
+                    <button type="submit">Enregistrer</button>
+                    <button
+                      type="button"
+                      className="button-secondary"
+                      onClick={() => setEditingStepId(null)}
                     >
-                      {isObligatoire ? "Obligatoire par défaut" : "Facultatif"}
-                    </span>
-                  </div>
+                      Annuler
+                    </button>
+                  </form>
+                ) : (
+                  <>
+                    <div className="step-header">
+                      <div>
+                        <strong>
+                          {index + 1}. {step.nom}
+                        </strong>
+                        {step.date_etape && (
+                          <span className="step-date">
+                            {" "}
+                            — {formatDateDDMMYYYY(step.date_etape)}
+                          </span>
+                        )}
+                        <span
+                          className={
+                            isObligatoire ? "badge-obligatoire" : "badge-facultatif"
+                          }
+                        >
+                          {isObligatoire ? "Obligatoire par défaut" : "Facultatif"}
+                        </span>
+                      </div>
 
-                  {modeEdition && (
-                    <div className="step-actions">
-                      <button
-                        type="button"
-                        onClick={() => handleToggleStepObligatoire(step)}
-                      >
-                        {isObligatoire ? "Passer facultatif" : "Rendre obligatoire"}
-                      </button>
-                      <button
-                        type="button"
-                        className="button-danger"
-                        disabled={isObligatoire}
-                        onClick={() => handleDeleteStep(step)}
-                      >
-                        Supprimer étape
-                      </button>
+                      {modeEdition && (
+                        <div className="step-actions">
+                          <button
+                            type="button"
+                            className="icon-btn"
+                            onClick={() => startEditingStep(step)}
+                            title="Modifier l'étape"
+                            aria-label="Modifier l'étape"
+                            >
+                            <Pencil size={15} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleStepObligatoire(step)}
+                          >
+                            {isObligatoire ? "Passer facultatif" : "Rendre obligatoire"}
+                          </button>
+                          <button
+                            type="button"
+                            className="button-danger"
+                            disabled={isObligatoire}
+                            onClick={() => handleDeleteStep(step)}
+                          >
+                            Supprimer étape
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
 
-                {step.notes && <p className="step-notes">{step.notes}</p>}
+                    {step.notes && <p className="step-notes">{step.notes}</p>}
+                  </>
+                )}
 
+                {/* --- ACTIVITÉS --- */}
                 <div className="activities-block">
                   <h4>
                     <MapPinned size={16} /> Activités ({activities.length})
@@ -450,6 +681,66 @@ function ItineraryDetails({
                     <ul className="activities-list">
                       {activities.map((act) => {
                         const actObligatoire = Boolean(act.est_obligatoire);
+                        const isEditingAct = editingActivityId === act.id;
+
+                        if (isEditingAct) {
+                          return (
+                            <li key={act.id} className="activity-item">
+                              <form
+                                onSubmit={(e) => handleSaveActivity(e, act.id)}
+                                className="activity-form edit-inline-form"
+                              >
+                                <input
+                                  type="text"
+                                  placeholder="Nom de l'activité"
+                                  value={editingActivityForm.nom}
+                                  onChange={(e) =>
+                                    setEditingActivityForm((prev) => ({
+                                      ...prev,
+                                      nom: e.target.value,
+                                    }))
+                                  }
+                                  required
+                                />
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  placeholder="Coût (DH)"
+                                  value={editingActivityForm.cout}
+                                  onChange={(e) =>
+                                    setEditingActivityForm((prev) => ({
+                                      ...prev,
+                                      cout: e.target.value,
+                                    }))
+                                  }
+                                />
+                                <label className="checkbox-label">
+                                  <input
+                                    type="checkbox"
+                                    checked={Boolean(editingActivityForm.est_obligatoire)}
+                                    onChange={(e) =>
+                                      setEditingActivityForm((prev) => ({
+                                        ...prev,
+                                        est_obligatoire: e.target.checked,
+                                      }))
+                                    }
+                                  />
+                                  Obligatoire
+                                </label>
+                                <button type="submit">Enregistrer</button>
+                                <button
+                                  type="button"
+                                  className="button-secondary"
+                                  onClick={() => setEditingActivityId(null)}
+                                >
+                                  Annuler
+                                </button>
+                              </form>
+                            </li>
+                          );
+                        }
+
                         return (
                           <li key={act.id} className="activity-item">
                             <span>
@@ -466,6 +757,15 @@ function ItineraryDetails({
 
                             {modeEdition && (
                               <div className="activity-actions">
+                                <button
+                                  type="button"
+                                  className="icon-btn"
+                                  onClick={() => startEditingActivity(act)}
+                                  title="Modifier l'activité"
+                                  aria-label="Modifier l'activité"
+                                >
+                                  <Pencil size={15} />
+                                </button>
                                 <button
                                   type="button"
                                   onClick={() => handleToggleActivityObligatoire(act)}
@@ -528,6 +828,7 @@ function ItineraryDetails({
                   )}
                 </div>
 
+                {/* --- HÉBERGEMENTS --- */}
                 <div className="hebergement-block">
                   <h4>
                     <BedDouble size={16} /> Hébergement ({hebergements.length})
@@ -537,26 +838,98 @@ function ItineraryDetails({
                   ) : (
                     <>
                       <ul className="hebergement-list">
-                        {hebergements.map((h) => (
-                          <li key={h.id} className="hebergement-item">
-                            <span>
-                              <strong>{h.nom}</strong>
-                              <span className="hebergement-detail">
-                                {Number(h.prix_par_nuit || 0).toFixed(2)} DH/nuit ×{" "}
-                                {h.nombre_nuits} nuit(s) = {coutHebergement(h).toFixed(2)} DH
+                        {hebergements.map((h) => {
+                          const isEditingHeb = editingHebergementId === h.id;
+
+                          if (isEditingHeb) {
+                            return (
+                              <li key={h.id} className="hebergement-item">
+                                <form
+                                  onSubmit={(e) => handleSaveHebergement(e, h.id)}
+                                  className="hebergement-form edit-inline-form"
+                                >
+                                  <input
+                                    type="text"
+                                    placeholder="Nom (hôtel, riad, auberge...)"
+                                    value={editingHebergementForm.nom}
+                                    onChange={(e) =>
+                                      setEditingHebergementForm((prev) => ({
+                                        ...prev,
+                                        nom: e.target.value,
+                                      }))
+                                    }
+                                    required
+                                  />
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    placeholder="Prix / nuit (DH)"
+                                    value={editingHebergementForm.prix_par_nuit}
+                                    onChange={(e) =>
+                                      setEditingHebergementForm((prev) => ({
+                                        ...prev,
+                                        prix_par_nuit: e.target.value,
+                                      }))
+                                    }
+                                  />
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    placeholder="Nuits"
+                                    value={editingHebergementForm.nombre_nuits}
+                                    onChange={(e) =>
+                                      setEditingHebergementForm((prev) => ({
+                                        ...prev,
+                                        nombre_nuits: e.target.value,
+                                      }))
+                                    }
+                                  />
+                                  <button type="submit">Enregistrer</button>
+                                  <button
+                                    type="button"
+                                    className="button-secondary"
+                                    onClick={() => setEditingHebergementId(null)}
+                                  >
+                                    Annuler
+                                  </button>
+                                </form>
+                              </li>
+                            );
+                          }
+
+                          return (
+                            <li key={h.id} className="hebergement-item">
+                              <span>
+                                <strong>{h.nom}</strong>
+                                <span className="hebergement-detail">
+                                  {Number(h.prix_par_nuit || 0).toFixed(2)} DH/nuit ×{" "}
+                                  {h.nombre_nuits} nuit(s) = {coutHebergement(h).toFixed(2)} DH
+                                </span>
                               </span>
-                            </span>
-                            {modeEdition && (
-                              <button
-                                type="button"
-                                className="button-danger"
-                                onClick={() => handleDeleteHebergement(h)}
-                              >
-                                Supprimer
-                              </button>
-                            )}
-                          </li>
-                        ))}
+                              {modeEdition && (
+                                <div className="hebergement-actions">
+                                  <button
+                                    type="button"
+                                    className="icon-btn"
+                                    onClick={() => startEditingHebergement(h)}
+                                    title="Modifier l'hébergement"
+                                    aria-label="Modifier l'hébergement"
+                                  >
+                                    <Pencil size={15} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="button-danger"
+                                    onClick={() => handleDeleteHebergement(h)}
+                                  >
+                                    Supprimer
+                                  </button>
+                                </div>
+                              )}
+                            </li>
+                          );
+                        })}
                       </ul>
                       <p className="hebergement-total">
                         Total hébergement de l'étape : {coutHebergementEtape.toFixed(2)} DH

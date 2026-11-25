@@ -559,6 +559,8 @@ input[type="checkbox"] {
   margin: 0 auto;
 }
 
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; }
+
 .login-container h1,
 .register-container h1 {
   text-align: center;
