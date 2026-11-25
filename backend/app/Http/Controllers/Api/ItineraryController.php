@@ -81,6 +81,10 @@ class ItineraryController extends Controller
             'budget' => 'nullable|numeric|min:0',
         ]);
 
+        if (array_key_exists('budget', $validated) && $validated['budget'] === null) {
+            $validated['budget'] = 0;
+        }
+
         $updated = $this->itineraryService->updateItinerary($itinerary, $validated);
 
         return response()->json($updated, 200);

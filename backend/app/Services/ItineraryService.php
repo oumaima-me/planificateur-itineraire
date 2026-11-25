@@ -69,6 +69,7 @@ class ItineraryService
     public function createWithDefaults(array $data, int $userId): Itinerary
     {
         $data['user_id'] = $userId;
+        $data['budget'] = $data['budget'] ?? 0;
         $itinerary = Itinerary::create($data);
 
         $defaultStep = $itinerary->steps()->create([
@@ -148,7 +149,7 @@ class ItineraryService
         unset($data['user_id']);
         $itinerary->update($data);
 
-        return $itinerary->load($this->nestedRelations());
+        return $itinerary->fresh($this->nestedRelations());
     }
 
     public function deleteItinerary(Itinerary $itinerary): void

@@ -24,7 +24,7 @@ class ActivityService
     {
         $activity->update($data);
 
-        return $activity;
+        return $activity->fresh();
     }
 
     public function deleteActivity(Activity $activity): void

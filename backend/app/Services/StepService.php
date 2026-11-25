@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\Itinerary;
 use App\Models\Step;
 use DomainException;
 
@@ -26,7 +25,7 @@ class StepService
     {
         $step->update($data);
 
-        return $step->load(['activities', 'accommodations']);
+        return $step->fresh(['activities', 'accommodations']);
     }
 
     public function deleteStep(Step $step): void

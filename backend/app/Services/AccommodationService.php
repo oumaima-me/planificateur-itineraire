@@ -15,7 +15,7 @@ class AccommodationService
     {
         $accommodation->update($data);
 
-        return $accommodation;
+        return $accommodation->fresh();
     }
 
     public function deleteAccommodation(Accommodation $accommodation): void
