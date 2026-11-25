@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Plus, Eye, Pencil, Trash2, MapPin, Calendar, Wallet } from "lucide-react";
+import { Plus, Eye, Pencil, Trash2, MapPin, Calendar, Wallet, Search } from "lucide-react";
 import ItineraryDateFilter, {
   filterItinerariesByDate,
 } from "../components/ItineraryDateFilter";
@@ -24,15 +24,23 @@ function MyItineraries({
   onModifier,
   onSupprimer,
 }) {
+  const [searchQuery, setSearchQuery] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
-  const itinerairesFiltres = useMemo(
-    () => filterItinerariesByDate(itineraires, startDate, endDate),
-    [itineraires, startDate, endDate]
-  );
+  const itinerairesFiltres = useMemo(() => {
+    const byDate = filterItinerariesByDate(itineraires, startDate, endDate);
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return byDate;
 
-  const hasActiveFilter = Boolean(startDate || endDate);
+    return byDate.filter((item) => {
+      const titre = String(item.titre || "").toLowerCase();
+      const destination = String(item.destination || "").toLowerCase();
+      return titre.includes(q) || destination.includes(q);
+    });
+  }, [itineraires, startDate, endDate, searchQuery]);
+
+  const hasActiveFilter = Boolean(searchQuery.trim() || startDate || endDate);
 
   return (
     <div className="page-container my-itineraries">
@@ -43,30 +51,53 @@ function MyItineraries({
         </div>
       </div>
 
-      <ItineraryDateFilter
-        itineraries={itineraires}
-        startDate={startDate}
-        endDate={endDate}
-        onFilterChange={(_, dates) => {
-          setStartDate(dates.startDate);
-          setEndDate(dates.endDate);
-        }}
-      />
+      <div className="filters-toolbar">
+        <div className="search-box">
+          <Search size={16} />
+          <input
+            type="text"
+            placeholder="Rechercher par nom d'itinéraire ou destination..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            aria-label="Rechercher un itinéraire par nom"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              className="button-secondary"
+              onClick={() => setSearchQuery("")}
+            >
+              Effacer
+            </button>
+          )}
+        </div>
+
+        <ItineraryDateFilter
+          itineraries={itineraires}
+          startDate={startDate}
+          endDate={endDate}
+          onFilterChange={(_, dates) => {
+            setStartDate(dates.startDate);
+            setEndDate(dates.endDate);
+          }}
+        />
+      </div>
 
       {itinerairesFiltres.length === 0 ? (
         <div className="card empty-state">
           {hasActiveFilter ? (
             <>
-              <p>Aucun itinéraire ne correspond aux dates sélectionnées.</p>
+              <p>Aucun itinéraire ne correspond à votre recherche ou aux dates sélectionnées.</p>
               <button
                 type="button"
                 className="button-secondary"
                 onClick={() => {
+                  setSearchQuery("");
                   setStartDate("");
                   setEndDate("");
                 }}
               >
-                Réinitialiser le filtre
+                Réinitialiser les filtres
               </button>
             </>
           ) : (

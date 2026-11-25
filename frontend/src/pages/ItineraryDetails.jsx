@@ -7,6 +7,7 @@ import {
   RefreshCw,
   ArrowLeft,
   CheckCircle2,
+  AlertTriangle,
 } from "lucide-react";
 import api from "../api/axios";
 
@@ -426,6 +427,9 @@ function ItineraryDetails({
   const budget = Number(details.budget ?? details.budgetTotal ?? 0);
   const totalDepenses = totalActivitiesCost + totalHebergementCost;
   const reste = budget - totalDepenses;
+  const isOverBudget = budget > 0 && totalDepenses > budget;
+  const depassement = Math.max(0, totalDepenses - budget);
+  const ratioBudget = budget > 0 ? Math.min(100, Math.round((totalDepenses / budget) * 100)) : 0;
 
   const formattedStart = formatDateDDMMYYYY(
     details.date_debut || details.dateDebut,
@@ -455,7 +459,9 @@ function ItineraryDetails({
           Budget : <strong>{budget.toFixed(2)} DH</strong> · Activités :{" "}
           <strong>{totalActivitiesCost.toFixed(2)} DH</strong> · Hébergements :{" "}
           <strong>{totalHebergementCost.toFixed(2)} DH</strong> · Reste :{" "}
-          <strong>{reste.toFixed(2)} DH</strong>
+          <strong className={isOverBudget ? "text-danger" : ""}>
+            {reste.toFixed(2)} DH
+          </strong>
         </p>
         {details.description && <p>{details.description}</p>}
 
@@ -494,6 +500,43 @@ function ItineraryDetails({
           )}
         </div>
       </div>
+
+      {isOverBudget && (
+        <section className="details-budget-callout" role="alert">
+          <div className="callout-icon-wrap" aria-hidden="true">
+            <AlertTriangle size={24} />
+          </div>
+          <div className="callout-body">
+            <div className="callout-title-line">
+              <h3>Dépassement de budget détecté</h3>
+              <span className="callout-pill">+{depassement.toFixed(2)} DH</span>
+            </div>
+            <p>
+              Les dépenses cumulées de <strong>{details.titre}</strong> atteignent{" "}
+              <strong>{totalDepenses.toFixed(2)} DH</strong> pour un budget initial de{" "}
+              <strong>{budget.toFixed(2)} DH</strong>. Réduisez le coût d'une activité ou
+              d'un hébergement pour revenir dans votre enveloppe.
+            </p>
+            <div className="callout-metrics">
+              <span>
+                Budget prévu : <strong>{budget.toFixed(2)} DH</strong>
+              </span>
+              <span>
+                Dépenses : <strong>{totalDepenses.toFixed(2)} DH</strong>
+              </span>
+              <span>
+                Écart : <strong>-{depassement.toFixed(2)} DH</strong>
+              </span>
+            </div>
+            <div className="callout-progress-track" aria-hidden="true">
+              <div
+                className="callout-progress-fill"
+                style={{ width: `${ratioBudget}%` }}
+              />
+            </div>
+          </div>
+        </section>
+      )}
 
       {erreur && <p className="error-message">{erreur}</p>}
 
@@ -639,7 +682,7 @@ function ItineraryDetails({
                             onClick={() => startEditingStep(step)}
                             title="Modifier l'étape"
                             aria-label="Modifier l'étape"
-                            >
+                          >
                             <Pencil size={15} />
                           </button>
                           <button

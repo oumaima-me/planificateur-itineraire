@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Bell, Check, Trash2, X } from "lucide-react";
 import api from "./api/axios";
 import Login from "./pages/Login";
@@ -17,6 +17,46 @@ const STORAGE_KEYS = {
   selectedId: "selected_itinerary_id",
   completedIds: "completed_itinerary_ids",
 };
+
+function getUserKey(user) {
+  if (!user) return "guest";
+  const idPart = user.id !== undefined && user.id !== null ? String(user.id) : "";
+  const emailPart = user.email ? String(user.email).trim().toLowerCase() : "";
+  return `${idPart}_${emailPart}` || "guest";
+}
+
+function getNotifStorageKey(user) {
+  return `routenotes_notifications_${getUserKey(user)}`;
+}
+
+function getAlertedOverBudgetKey(user) {
+  return `routenotes_alerted_over_budget_${getUserKey(user)}`;
+}
+
+function loadUserNotifications(user) {
+  try {
+    const raw = localStorage.getItem(getNotifStorageKey(user));
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function loadAlertedOverBudgetIds(user) {
+  try {
+    const raw = localStorage.getItem(getAlertedOverBudgetKey(user));
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.map(Number) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveAlertedOverBudgetIds(user, ids) {
+  if (!user) return;
+  localStorage.setItem(getAlertedOverBudgetKey(user), JSON.stringify(ids));
+}
 
 function formaterItineraire(item) {
   const steps = item.steps || item.etapes || [];
@@ -66,7 +106,6 @@ function getInitialPage() {
   const savedPage = localStorage.getItem(STORAGE_KEYS.page) || "dashboard";
   const savedSelectedId = localStorage.getItem(STORAGE_KEYS.selectedId);
 
-  // Résumé & Timeline ne s'ouvre pas de façon ambiguë après un refresh sans itinéraire ciblé
   if (savedPage === "summary") {
     return savedSelectedId ? "details" : "itineraires";
   }
@@ -106,16 +145,67 @@ function App() {
     }
   });
 
-  const [notifications, setNotifications] = useState([]);
+  const [notifications, setNotifications] = useState(() =>
+    loadUserNotifications(utilisateurConnecte)
+  );
   const [showNotifPanel, setShowNotifPanel] = useState(false);
+  const [activeToast, setActiveToast] = useState(null);
+  const toastTimerRef = useRef(null);
 
-  const pushNotification = useCallback((title, message, type = "info") => {
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    setNotifications((prev) => [
-      { id, title, message, type, read: false },
-      ...prev.slice(0, 19),
-    ]);
+  const showTemporaryToast = useCallback((notif) => {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+    }
+    setActiveToast(notif);
+    toastTimerRef.current = setTimeout(() => {
+      setActiveToast(null);
+    }, 5000);
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    };
+  }, []);
+
+  const pushNotification = useCallback(
+    (title, message, type = "info", autoPop = true, dedupeKey = null) => {
+      const id =
+        dedupeKey || `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      const entry = { id, title, message, type, read: false };
+
+      setNotifications((prev) => {
+        if (dedupeKey && prev.some((n) => n.id === dedupeKey)) {
+          return prev;
+        }
+        return [entry, ...prev.slice(0, 19)];
+      });
+
+      if (autoPop) {
+        showTemporaryToast(entry);
+      }
+    },
+    [showTemporaryToast]
+  );
+
+  useEffect(() => {
+    if (!token || !utilisateurConnecte) {
+      setNotifications([]);
+      setActiveToast(null);
+      return;
+    }
+    setNotifications(loadUserNotifications(utilisateurConnecte));
+    setActiveToast(null);
+  }, [token, utilisateurConnecte]);
+
+  useEffect(() => {
+    if (token && utilisateurConnecte) {
+      localStorage.setItem(
+        getNotifStorageKey(utilisateurConnecte),
+        JSON.stringify(notifications)
+      );
+    }
+  }, [notifications, token, utilisateurConnecte]);
 
   useEffect(() => {
     if (token) {
@@ -157,7 +247,7 @@ function App() {
   }, [completedItineraryIds]);
 
   const chargerItineraires = useCallback(async () => {
-    if (!token) return;
+    if (!token || !utilisateurConnecte) return;
     try {
       const response = await api.get("/itineraries");
       const rawList = Array.isArray(response.data)
@@ -166,23 +256,48 @@ function App() {
       const list = rawList.map(formaterItineraire);
       setItineraires(list);
 
+      let alertedIds = loadAlertedOverBudgetIds(utilisateurConnecte);
+      let alertedChanged = false;
+
+      const withinBudgetIds = new Set();
+      for (const item of list) {
+        const budget = Number(item.budget ?? item.budgetTotal ?? 0);
+        const depenses = calculerDepensesItineraire(item);
+        if (budget <= 0 || depenses <= budget) {
+          withinBudgetIds.add(Number(item.id));
+        }
+      }
+
+      if (alertedIds.some((id) => withinBudgetIds.has(id))) {
+        alertedIds = alertedIds.filter((id) => !withinBudgetIds.has(id));
+        alertedChanged = true;
+      }
+
       setNotifications((prev) => {
         const next = [...prev];
+
         for (const item of list) {
+          const idNum = Number(item.id);
           const budget = Number(item.budget ?? item.budgetTotal ?? 0);
           const depenses = calculerDepensesItineraire(item);
+
           if (budget > 0 && depenses > budget) {
             const key = `over-budget-${item.id}`;
             if (!next.some((n) => n.id === key)) {
               next.unshift({
                 id: key,
                 title: "Budget dépassé",
-                message: `"${item.titre}" dépasse son budget (${depenses.toFixed(0)} DH / ${budget.toFixed(0)} DH).`,
+                message: `"${item.titre}" dépasse son budget (${depenses.toFixed(2)} DH / ${budget.toFixed(2)} DH).`,
                 type: "warning",
                 read: false,
               });
             }
+            if (!alertedIds.includes(idNum)) {
+              alertedIds.push(idNum);
+              alertedChanged = true;
+            }
           }
+
           if (!item.dateDebut && !item.dateFin) {
             const key = `no-dates-${item.id}`;
             if (!next.some((n) => n.id === key)) {
@@ -196,8 +311,13 @@ function App() {
             }
           }
         }
+
         return next.slice(0, 20);
       });
+
+      if (alertedChanged) {
+        saveAlertedOverBudgetIds(utilisateurConnecte, alertedIds);
+      }
     } catch (error) {
       console.error("Erreur chargement itinéraires :", error);
       if (error.response?.status === 401) {
@@ -207,28 +327,37 @@ function App() {
         localStorage.removeItem(STORAGE_KEYS.selectedId);
       }
     }
-  }, [token]);
+  }, [token, utilisateurConnecte]);
 
   useEffect(() => {
-    if (token) {
+    if (token && utilisateurConnecte) {
       chargerItineraires();
     } else {
       setItineraires([]);
     }
-  }, [token, chargerItineraires]);
+  }, [token, utilisateurConnecte, chargerItineraires]);
 
   function handleAuthSuccess(authData) {
     const receivedToken = authData?.token || authData?.access_token || "";
     const receivedUser = authData?.user || authData;
+    const userNotifs = loadUserNotifications(receivedUser);
+
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setActiveToast(null);
     setToken(receivedToken);
     setUtilisateurConnecte(receivedUser);
     setItineraireSelectionneId(null);
     setPage("dashboard");
-    pushNotification(
-      "Connexion réussie",
-      `Bienvenue ${receivedUser?.nom || receivedUser?.name || ""} !`,
-      "success"
-    );
+
+    const welcomeNotif = {
+      id: `login-${Date.now()}`,
+      title: "Connexion réussie",
+      message: `Bienvenue ${receivedUser?.nom || receivedUser?.name || ""} !`,
+      type: "success",
+      read: false,
+    };
+    setNotifications([welcomeNotif, ...userNotifs].slice(0, 20));
+    showTemporaryToast(welcomeNotif);
   }
 
   async function handleLogout() {
@@ -237,6 +366,9 @@ function App() {
     } catch {
       // Ignore network/token expiration errors on logout
     } finally {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      setActiveToast(null);
+      setNotifications([]);
       setToken("");
       setUtilisateurConnecte(null);
       setItineraireEnCours(null);
@@ -263,7 +395,8 @@ function App() {
     pushNotification(
       isEditing ? "Itinéraire mis à jour" : "Itinéraire créé",
       `"${formatted.titre}" (${formatted.destination}) a bien été enregistré.`,
-      "success"
+      "success",
+      true
     );
 
     if (isEditing) {
@@ -280,6 +413,14 @@ function App() {
       await api.delete(`/itineraries/${id}`);
       setItineraires((prev) => prev.filter((item) => item.id !== id));
       setCompletedItineraryIds((prev) => prev.filter((itemId) => itemId !== Number(id)));
+
+      if (utilisateurConnecte) {
+        const updatedAlerted = loadAlertedOverBudgetIds(utilisateurConnecte).filter(
+          (itemId) => itemId !== Number(id)
+        );
+        saveAlertedOverBudgetIds(utilisateurConnecte, updatedAlerted);
+      }
+
       if (itineraireSelectionneId === id) {
         setItineraireSelectionneId(null);
         if (page === "details" || page === "summary") setPage("itineraires");
@@ -287,14 +428,16 @@ function App() {
       pushNotification(
         "Itinéraire supprimé",
         target ? `"${target.titre}" a été supprimé.` : "L'itinéraire a été supprimé.",
-        "info"
+        "info",
+        true
       );
     } catch (error) {
       console.error("Erreur suppression itinéraire :", error);
       pushNotification(
         "Erreur de suppression",
         error.response?.data?.message || "Impossible de supprimer cet itinéraire.",
-        "warning"
+        "warning",
+        true
       );
     }
   }
@@ -324,7 +467,8 @@ function App() {
     pushNotification(
       "Planning terminé",
       `Résumé et timeline générés pour "${target.titre}".`,
-      "success"
+      "success",
+      true
     );
   }
 
@@ -333,6 +477,29 @@ function App() {
     setItineraires((prev) =>
       prev.map((item) => (item.id === formatted.id ? formatted : item))
     );
+
+    if (!utilisateurConnecte) return;
+
+    const idNum = Number(formatted.id);
+    const budget = Number(formatted.budget ?? formatted.budgetTotal ?? 0);
+    const depenses = calculerDepensesItineraire(formatted);
+    const isOver = budget > 0 && depenses > budget;
+    let alertedIds = loadAlertedOverBudgetIds(utilisateurConnecte);
+
+    if (isOver && !alertedIds.includes(idNum)) {
+      alertedIds = [...alertedIds, idNum];
+      saveAlertedOverBudgetIds(utilisateurConnecte, alertedIds);
+      pushNotification(
+        "Dépassement de budget !",
+        `"${formatted.titre}" dépasse son budget de ${(depenses - budget).toFixed(2)} DH (${depenses.toFixed(2)} DH / ${budget.toFixed(2)} DH).`,
+        "warning",
+        true,
+        `over-budget-${formatted.id}`
+      );
+    } else if (!isOver && alertedIds.includes(idNum)) {
+      alertedIds = alertedIds.filter((itemId) => itemId !== idNum);
+      saveAlertedOverBudgetIds(utilisateurConnecte, alertedIds);
+    }
   }
 
   if (!token || !utilisateurConnecte) {
@@ -361,6 +528,27 @@ function App() {
 
   return (
     <div className="app">
+      {activeToast && (
+        <div
+          className={`notif-toast ${activeToast.type || "info"}`}
+          role="status"
+          aria-live="polite"
+        >
+          <div>
+            <strong>{activeToast.title}</strong>
+            <p>{activeToast.message}</p>
+          </div>
+          <button
+            type="button"
+            className="toast-close-btn"
+            onClick={() => setActiveToast(null)}
+            aria-label="Fermer la notification"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       <aside className="sidebar">
         <div className="logo-container">
           <h1 className="logo">RouteNotes</h1>
